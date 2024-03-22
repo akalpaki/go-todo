@@ -1,6 +1,2 @@
-*
-!*.go
-!*.md
-!go.mod
-!go.sum
-!.gitignore
+todo
+todo.db
