@@ -58,3 +58,21 @@ func ReadJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 
 	return nil
 }
+
+type apiError struct {
+	Status int
+	Msg    string
+	err    error
+}
+
+func (e apiError) Error() string {
+	return e.Msg
+}
+
+func NewAPIError(status int, msg string, err error) *apiError {
+	return &apiError{
+		Status: status,
+		Msg:    msg,
+		err:    err,
+	}
+}
