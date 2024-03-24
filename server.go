@@ -7,15 +7,25 @@ import (
 	"strconv"
 )
 
-type apiFunc func(http.ResponseWriter, *http.Request) *apiError
+type apiFunc func(http.ResponseWriter, *http.Request) *apiErrorV2
 
 func makeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if err := f(w, r); err != nil {
-			slog.ErrorContext(r.Context(), err.Msg, "Error", err.err)
-			http.Error(w, err.Msg, err.Status)
+		err := f(w, r)
+		if err == nil {
 			return
 		}
+		slog.Error(err.Title, "error", err.Error())
+		body, unmarshErr := err.ResponseBody()
+		if unmarshErr != nil {
+			slog.Error("an error occured", "error", unmarshErr.Error())
+		}
+		status, headers := err.ResponseHeaders()
+		for k, v := range headers {
+			w.Header().Set(k, v)
+		}
+		w.WriteHeader(status)
+		w.Write(body)
 	}
 }
 
@@ -52,173 +62,213 @@ func (s *restServer) Run() {
 	log.Fatal(http.ListenAndServe(s.listenAddr, nil))
 }
 
-func (s *restServer) handleGetTodos(w http.ResponseWriter, r *http.Request) *apiError {
+func (s *restServer) handleGetTodos(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	resp, err := s.storer.GetTodos(ctx)
 	if err != nil {
-		return internalErrorResponse("failed tor retrieve todo lists", err)
+		switch err {
+		case errNotFound:
+			return notFoundResponseV2()
+		default:
+			return internalErrorResponseV2("failed to retrieve todo lists", err)
+		}
 	}
 
 	if err := WriteJSON(w, http.StatusOK, resp); err != nil {
-		return internalErrorResponse("failed to process request", err) // FIXME: this error is wrong, I put it as standin for now
+		return internalErrorResponseV2("an error occured", err)
 	}
 
 	return nil
 }
 
-func (s *restServer) handleGetTodo(w http.ResponseWriter, r *http.Request) *apiError {
+func (s *restServer) handleGetTodo(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
-		return badRequestResponse("invalid todo list id", err)
+		return badRequestResponseV2("invalid todo list id", err)
 	}
 
 	resp, err := s.storer.GetTodo(ctx, id)
 	if err != nil {
-		return internalErrorResponse("failed to retrieve todo list", err)
+		switch err {
+		case errNotFound:
+			return notFoundResponseV2()
+		default:
+			return internalErrorResponseV2("failed to retrieve todo list", err)
+		}
 	}
 
 	if err := WriteJSON(w, http.StatusOK, resp); err != nil {
-		return internalErrorResponse("failed to process request", err)
+		return internalErrorResponseV2("an error occured", err)
 	}
 
 	return nil
 }
 
-func (s *restServer) handleCreateTodo(w http.ResponseWriter, r *http.Request) *apiError {
+func (s *restServer) handleCreateTodo(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	var todo CreateTodo
 
 	if err := ReadJSON(w, r, &todo); err != nil {
-		return badRequestResponse("invalid data", err)
+		return badRequestResponseV2("invalid data", err)
 	}
 
 	out, err := s.storer.CreateTodo(ctx, todo)
 	if err != nil {
-		return internalErrorResponse("failed to create todo list", err)
+		return internalErrorResponseV2("failed to create todo list", err)
 	}
 
 	if err := WriteJSON(w, http.StatusOK, out); err != nil {
-		return internalErrorResponse("failed to process request", err)
+		return internalErrorResponseV2("an error occured", err)
 	}
 
 	return nil
 }
 
-func (s *restServer) handleUpdateTodo(w http.ResponseWriter, r *http.Request) *apiError {
+func (s *restServer) handleUpdateTodo(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	var update UpdateTodo
 
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
-		return badRequestResponse("invalid todo list id", err)
+		return badRequestResponseV2("invalid todo list id", err)
 	}
 
 	if err := ReadJSON(w, r, &update); err != nil {
-		return badRequestResponse("invalid data", err)
+		return badRequestResponseV2("invalid data", err)
 	}
 
 	err = s.storer.UpdateTodo(ctx, id, update)
 	if err != nil {
-		return internalErrorResponse("failed to update todo list", err)
+		switch err {
+		case errNotFound:
+			return notFoundResponseV2()
+		default:
+			return internalErrorResponseV2("failed to update todo list", err)
+		}
 	}
 
 	if err := WriteJSON(w, http.StatusOK, nil); err != nil {
-		return internalErrorResponse("unable to process request", err)
+		return internalErrorResponseV2("an error occured", err)
 	}
 
 	return nil
 }
 
-func (s *restServer) handleDeleteTodo(w http.ResponseWriter, r *http.Request) *apiError {
+func (s *restServer) handleDeleteTodo(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
-		return badRequestResponse("invalid todo list id", err)
+		return badRequestResponseV2("invalid todo list id", err)
 	}
 
 	if err := s.storer.DeleteTodo(ctx, id); err != nil {
-		return internalErrorResponse("failed to delete todo list", err)
+		switch err {
+		case errNotFound:
+			return notFoundResponseV2()
+		default:
+			return internalErrorResponseV2("failed to delete todo list", err)
+		}
 	}
 
 	if err := WriteJSON(w, http.StatusOK, nil); err != nil {
-		return internalErrorResponse("failed to process request", err)
+		return internalErrorResponseV2("an error occured", err)
 	}
 
 	return nil
 }
 
-func (s *restServer) handleGetTodoItems(w http.ResponseWriter, r *http.Request) *apiError {
+func (s *restServer) handleGetTodoItems(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	todoID, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
-		return badRequestResponse("invalid todo list id", err)
+		return badRequestResponseV2("invalid todo list id", err)
 	}
 
 	items, err := s.storer.GetTodoItems(ctx, todoID)
 	if err != nil {
-		return internalErrorResponse("failed to retrieve todo items", err)
+		switch err {
+		case errNotFound:
+			return notFoundResponseV2()
+		default:
+			return internalErrorResponseV2("failed to retrieve todo items", err)
+		}
 	}
 
 	if err := WriteJSON(w, http.StatusOK, items); err != nil {
-		return internalErrorResponse("failed to process request", err)
+		return internalErrorResponseV2("an error occured", err)
 	}
 
 	return nil
 }
 
-func (s *restServer) handleAddTodoItem(w http.ResponseWriter, r *http.Request) *apiError {
+func (s *restServer) handleAddTodoItem(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	var item Item
 
 	if err := ReadJSON(w, r, &item); err != nil {
-		return badRequestResponse("invalid data", err)
+		return badRequestResponseV2("invalid data", err)
 	}
 
 	if err := s.storer.AddTodoItem(ctx, item); err != nil {
-		return internalErrorResponse("failed to add todo item", err)
+		switch err {
+		case errNotFound:
+			return notFoundResponseV2()
+		default:
+			return internalErrorResponseV2("failed to add todo item", err)
+		}
 	}
 
 	return nil
 }
 
-func (s *restServer) handleEditTodoItem(w http.ResponseWriter, r *http.Request) *apiError {
+func (s *restServer) handleEditTodoItem(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	var item Item
 
 	if err := ReadJSON(w, r, &item); err != nil {
-		return badRequestResponse("invalid data", err)
+		return badRequestResponseV2("invalid data", err)
 	}
 
 	if err := s.storer.UpdateTodoItem(ctx, item); err != nil {
-		return internalErrorResponse("failed to add todo item", err)
+		switch err {
+		case errNotFound:
+			return notFoundResponseV2()
+		default:
+			return internalErrorResponseV2("failed to add todo item", err)
+		}
 	}
 
 	return nil
 }
 
-func (s *restServer) handleDeleteTodoItem(w http.ResponseWriter, r *http.Request) *apiError {
+func (s *restServer) handleDeleteTodoItem(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	id, err := strconv.Atoi(r.PathValue("itemNo"))
 	if err != nil {
-		return badRequestResponse("invalid item number", err)
+		return badRequestResponseV2("invalid item number", err)
 	}
 
 	if err := s.storer.DeleteTodoItem(ctx, id); err != nil {
-		return internalErrorResponse("failed to delete todo list item", err)
+		switch err {
+		case errNotFound:
+			return notFoundResponseV2()
+		default:
+			return internalErrorResponseV2("failed to delete todo list item", err)
+		}
 	}
 
 	if err := WriteJSON(w, http.StatusOK, nil); err != nil {
-		return internalErrorResponse("failed to process request", err)
+		return internalErrorResponseV2("an error occured", err)
 	}
 
 	return nil
