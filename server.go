@@ -7,6 +7,8 @@ import (
 	"strconv"
 )
 
+const DEFAULT_LIMIT = 10
+
 type apiFunc func(http.ResponseWriter, *http.Request) *apiErrorV2
 
 func makeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
@@ -44,6 +46,8 @@ func NewRestServer(cfg *config, storer *Storer) *restServer {
 }
 
 func (s *restServer) Run() {
+	// User endpoints: crud and login of users
+	http.HandleFunc("POST /v1/user", makeHTTPHandleFunc())
 	// Todo endpoints: crud on the todo list entity
 	http.HandleFunc("GET /v1/todos", makeHTTPHandleFunc(s.handleGetTodos))
 	http.HandleFunc("POST /v1/todos", makeHTTPHandleFunc(s.handleCreateTodo))
@@ -62,10 +66,32 @@ func (s *restServer) Run() {
 	log.Fatal(http.ListenAndServe(s.listenAddr, nil))
 }
 
+func (s *restServer) handleCreateUser(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+	ctx := r.Context()
+
+	var user User
+	if err := ReadJSON(w, r, &user); err != nil {
+		return badRequestResponseV2("invalid data", err)
+	}
+
+}
+
 func (s *restServer) handleGetTodos(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
-	resp, err := s.storer.GetTodos(ctx)
+	queryParams := r.URL.Query()
+
+	page, err := strconv.Atoi(queryParams.Get("page"))
+	if err != nil {
+		page = 0
+	}
+
+	limit, err := strconv.Atoi(queryParams.Get("limit"))
+	if err != nil {
+		limit = DEFAULT_LIMIT
+	}
+
+	resp, err := s.storer.GetTodos(ctx, limit, page)
 	if err != nil {
 		switch err {
 		case errNotFound:

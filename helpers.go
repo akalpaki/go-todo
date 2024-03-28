@@ -22,7 +22,7 @@ var (
 // WriteJSON is a helper function which automatically writes JSON formated responses to the client.
 func WriteJSON(w http.ResponseWriter, status int, v any) error {
 	w.WriteHeader(status)
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", JSON_ENCODING)
 	return json.NewEncoder(w).Encode(v)
 }
 

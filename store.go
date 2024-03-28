@@ -21,11 +21,11 @@ func NewStorer(db *sql.DB) *Storer {
 }
 
 // GetTodos retrieves the previews of the todo lists from the database. It does NOT return the items.
-func (s *Storer) GetTodos(ctx context.Context) ([]Todo, error) {
+func (s *Storer) GetTodos(ctx context.Context, limit, page int) ([]Todo, error) {
 	res := make([]Todo, 0)
 
-	// TODO: pagination
-	rows, err := s.DB.QueryContext(ctx, "select * from todo")
+	offset := calculateOffset(page, limit)
+	rows, err := s.DB.QueryContext(ctx, "select * from todo order by id limit ? offset ?", limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -175,4 +175,8 @@ func (s *Storer) DeleteTodoItem(ctx context.Context, itemID int) error {
 		return err
 	}
 	return nil
+}
+
+func calculateOffset(page, limit int) int {
+	return (page - 1) * limit
 }
