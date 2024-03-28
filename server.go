@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+
+	"github.com/go-playground/validator/v10"
 )
 
 const DEFAULT_LIMIT = 10
@@ -47,7 +49,7 @@ func NewRestServer(cfg *config, storer *Storer) *restServer {
 
 func (s *restServer) Run() {
 	// User endpoints: crud and login of users
-	http.HandleFunc("POST /v1/user", makeHTTPHandleFunc())
+	http.HandleFunc("POST /v1/user", makeHTTPHandleFunc(s.handleCreateUser))
 	// Todo endpoints: crud on the todo list entity
 	http.HandleFunc("GET /v1/todos", makeHTTPHandleFunc(s.handleGetTodos))
 	http.HandleFunc("POST /v1/todos", makeHTTPHandleFunc(s.handleCreateTodo))
@@ -74,6 +76,23 @@ func (s *restServer) handleCreateUser(w http.ResponseWriter, r *http.Request) *a
 		return badRequestResponseV2("invalid data", err)
 	}
 
+	val := validator.New()
+
+	err := val.Struct(user)
+	if err != nil {
+		return badRequestResponseV2("invalid data", err)
+	}
+
+	registeredUser, err := s.storer.CreateUser(ctx, user)
+	if err != nil {
+		return internalErrorResponseV2("failed to create user", err)
+	}
+
+	if err := WriteJSON(w, http.StatusOK, registeredUser); err != nil {
+		return internalErrorResponseV2("an error occured", err)
+	}
+
+	return nil
 }
 
 func (s *restServer) handleGetTodos(w http.ResponseWriter, r *http.Request) *apiErrorV2 {

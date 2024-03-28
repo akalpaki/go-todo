@@ -3,8 +3,8 @@ package main
 // User is the model the represent an individual user
 type User struct {
 	ID       int    `json:"user_id"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required"`
 }
 
 // Todo is the model that represents a todo list entity.

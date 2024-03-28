@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -18,6 +20,21 @@ func NewStorer(db *sql.DB) *Storer {
 	return &Storer{
 		DB: db,
 	}
+}
+
+func (s *Storer) CreateUser(ctx context.Context, user User) (User, error) {
+	res, err := s.DB.ExecContext(ctx, "insert into user (email, password) values (?, ?)", user.Email, user.Password)
+	if err != nil {
+		return User{}, err
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return User{}, err
+	}
+	user.ID = int(id)
+
+	return user, nil
 }
 
 // GetTodos retrieves the previews of the todo lists from the database. It does NOT return the items.
@@ -179,4 +196,14 @@ func (s *Storer) DeleteTodoItem(ctx context.Context, itemID int) error {
 
 func calculateOffset(page, limit int) int {
 	return (page - 1) * limit
+}
+
+func hashPassword(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	return string(bytes), err
+}
+
+func checkPasswordHash(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
 }
