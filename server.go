@@ -1,11 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
-	"os"
 	"strconv"
 
 	"github.com/go-playground/validator/v10"
@@ -93,18 +91,44 @@ func withJWTTodoAuth(handlerFunc http.HandlerFunc, s *Storer) http.HandlerFunc {
 			return
 		}
 
+		if claims["iss"] != "todo" {
+			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+				Type:   errTypeForbidden,
+				Title:  "Access Denied",
+				Status: http.StatusForbidden,
+			})
+			return
+		}
+
+		if claims["aud"] != "todo" {
+			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+				Type:   errTypeForbidden,
+				Title:  "Access Denied",
+				Status: http.StatusForbidden,
+			})
+			return
+		}
+		exp, err := claims.GetExpirationTime()
+		if err != nil || exp == nil {
+			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+				Type:   errTypeForbidden,
+				Title:  "Access Denied",
+				Status: http.StatusForbidden,
+			})
+			return
+		}
+
+		if isExpired(exp.Time) {
+			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+				Type:   errTypeForbidden,
+				Title:  "Access Denied",
+				Status: http.StatusForbidden,
+			})
+			return
+		}
+
 		handlerFunc(w, r)
 	}
-}
-
-func validateJWT(tokenStr string) (*jwt.Token, error) {
-	secret := os.Getenv("JWT_SECRET_TOKEN")
-	return jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodEd25519); !ok {
-			return nil, fmt.Errorf("incorrect signing method: %s", t.Header["alg"])
-		}
-		return secret, nil
-	})
 }
 
 // |++++++++++++++++++++++++++++++++++++++|

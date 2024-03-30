@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -23,4 +24,19 @@ func createAccessToken(userID int) (string, error) {
 		return "", err
 	}
 	return tokenStr, nil
+}
+
+func validateJWT(tokenStr string) (*jwt.Token, error) {
+	secret := os.Getenv("JWT_SECRET_TOKEN")
+	return jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodEd25519); !ok {
+			return nil, fmt.Errorf("incorrect signing method: %s", t.Header["alg"])
+		}
+		return secret, nil
+	})
+}
+
+func isExpired(expiresAt time.Time) bool {
+	now := time.Now()
+	return now.Before(expiresAt)
 }
