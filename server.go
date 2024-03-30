@@ -40,63 +40,6 @@ func makeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
 	}
 }
 
-// withJWTUserAuth is authentication middleware for routes handling the user resource.
-func withJWTUserAuth(handlerFunc http.HandlerFunc, s *Storer) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		tokenStr := r.Header.Get("x-jwt-token")
-		if tokenStr == "" {
-			WriteJSON(w, http.StatusForbidden, apiErrorV2{
-				Type:   errTypeForbidden,
-				Title:  "Access Denied",
-				Status: http.StatusForbidden,
-			})
-			return
-		}
-
-		token, err := validateJWT(tokenStr)
-		if err != nil {
-			WriteJSON(w, http.StatusForbidden, apiErrorV2{
-				Type:   errTypeForbidden,
-				Title:  "Access Denied",
-				Status: http.StatusForbidden,
-			})
-			return
-		}
-
-		userID, err := strconv.Atoi(r.PathValue("id"))
-		if err != nil {
-			WriteJSON(w, http.StatusForbidden, apiErrorV2{
-				Type:   errTypeForbidden,
-				Title:  "Access Denied",
-				Status: http.StatusForbidden,
-			})
-			return
-		}
-
-		usr, err := s.GetUserByID(userID)
-		if err != nil {
-			WriteJSON(w, http.StatusForbidden, apiErrorV2{
-				Type:   errTypeForbidden,
-				Title:  "Access Denied",
-				Status: http.StatusForbidden,
-			})
-			return
-		}
-
-		claims := token.Claims.(jwt.MapClaims)
-		if usr.ID != int(claims["sub"].(float64)) {
-			WriteJSON(w, http.StatusForbidden, apiErrorV2{
-				Type:   errTypeForbidden,
-				Title:  "Access Denied",
-				Status: http.StatusForbidden,
-			})
-			return
-		}
-
-		handlerFunc(w, r)
-	}
-}
-
 // withJWTTodoAuth is authentication middleware for routes handling the todo resource.
 func withJWTTodoAuth(handlerFunc http.HandlerFunc, s *Storer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -158,7 +101,7 @@ func validateJWT(tokenStr string) (*jwt.Token, error) {
 	secret := os.Getenv("JWT_SECRET_TOKEN")
 	return jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodEd25519); !ok {
-			return nil, fmt.Errorf("Incorrect signing method: %s", t.Header["alg"])
+			return nil, fmt.Errorf("incorrect signing method: %s", t.Header["alg"])
 		}
 		return secret, nil
 	})
