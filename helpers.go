@@ -21,9 +21,14 @@ var (
 
 // WriteJSON is a helper function which automatically writes JSON formated responses to the client.
 func WriteJSON(w http.ResponseWriter, status int, v any) error {
+	w.Header().Add("Content-Type", JSON_ENCODING)
 	w.WriteHeader(status)
-	w.Header().Set("Content-Type", JSON_ENCODING)
 	return json.NewEncoder(w).Encode(v)
+}
+
+func SuccessfulLoginResponse(w http.ResponseWriter, token string) {
+	w.Header().Add("x-jwt-token", token)
+	w.WriteHeader(http.StatusOK)
 }
 
 // ReadJSON is a helper function which reads the contents of a JSON encoded message into a struct dst.

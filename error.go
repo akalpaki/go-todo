@@ -10,12 +10,16 @@ const (
 	errTypeBadRequest          = "error:bad_request"
 	errTypeInternalServerError = "error:internal_server_error"
 	errTypeNotFound            = "error:not_found"
+	errTypeForbidden           = "error:forbidden"
+	errTypeUnauthorized        = "error:unauthorized"
 )
 
 const (
 	errTitleBadRequest          = "invalid request data"
 	errTitleInternalServerError = "internal server error"
 	errTitleNotFound            = "not found"
+	errTitleForbidden           = "forbidden"
+	errTitleUnauthorized        = "unauthorized"
 )
 
 // apiErrorV2 is a model for an error which can be returned from the REST API that follows the RFC-9457 semantics.
@@ -83,6 +87,22 @@ func notFoundResponseV2() *apiErrorV2 {
 		Type:   errTypeNotFound,
 		Status: http.StatusNotFound,
 		Title:  errTitleNotFound,
+	}
+}
+
+func forbiddenResponseV2() *apiErrorV2 {
+	return &apiErrorV2{
+		Type:   errTypeForbidden,
+		Status: http.StatusForbidden,
+		Title:  errTitleForbidden,
+	}
+}
+
+func unauthorizedResponseV2() *apiErrorV2 {
+	return &apiErrorV2{
+		Type:   errTypeUnauthorized,
+		Status: http.StatusUnauthorized,
+		Title:  errTitleUnauthorized,
 	}
 }
 

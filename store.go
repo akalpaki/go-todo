@@ -23,6 +23,13 @@ func NewStorer(db *sql.DB) *Storer {
 }
 
 func (s *Storer) CreateUser(ctx context.Context, user User) (User, error) {
+	var err error
+
+	user.Password, err = hashPassword(user.Password)
+	if err != nil {
+		return User{}, err
+	}
+
 	res, err := s.DB.ExecContext(ctx, "insert into user (email, password) values (?, ?)", user.Email, user.Password)
 	if err != nil {
 		return User{}, err
@@ -37,12 +44,31 @@ func (s *Storer) CreateUser(ctx context.Context, user User) (User, error) {
 	return user, nil
 }
 
-// GetTodos retrieves the previews of the todo lists from the database. It does NOT return the items.
-func (s *Storer) GetTodos(ctx context.Context, limit, page int) ([]Todo, error) {
+func (s *Storer) GetUserByEmail(ctx context.Context, email string) (User, error) {
+	var registeredUser User
+
+	res := s.DB.QueryRowContext(ctx, "select * from user where email = ?", email)
+	if err := res.Scan(&registeredUser); err != nil {
+		return User{}, err
+	}
+	return registeredUser, nil
+}
+
+func (s *Storer) GetUserByID(id int) (User, error) {
+	var registeredUser User
+	row := s.DB.QueryRow("select * from user where id = ?", id)
+	if err := row.Scan(&registeredUser); err != nil {
+		return User{}, err
+	}
+	return registeredUser, nil
+}
+
+// GetTodosByUserID retrieves the previews of the todo lists for a specific user from the database. It does NOT return the items.
+func (s *Storer) GetTodosByUserID(ctx context.Context, userID int, limit, page int) ([]Todo, error) {
 	res := make([]Todo, 0)
 
 	offset := calculateOffset(page, limit)
-	rows, err := s.DB.QueryContext(ctx, "select * from todo order by id limit ? offset ?", limit, offset)
+	rows, err := s.DB.QueryContext(ctx, "select * from todo where user_id = ? order by id limit ? offset ?", userID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -78,6 +104,16 @@ func (s *Storer) GetTodo(ctx context.Context, id int) (Todo, error) {
 		res.Items = append(res.Items, item)
 	}
 
+	return res, nil
+}
+
+// GetTodoMetadataByID returns only the metadata about a todo list stored in the todo table. Currently used for auth purposes.
+func (s *Storer) GetTodoMetadataByID(id int) (Todo, error) {
+	var res Todo
+	row := s.DB.QueryRow("select * from todo where id = ?", id)
+	if err := row.Scan(&res); err != nil {
+		return Todo{}, err
+	}
 	return res, nil
 }
 

@@ -45,8 +45,8 @@ func LoadConfig() *config {
 
 	return &config{
 		Env:        env,
-		DB:         db,
 		ListenAddr: listenAddr,
+		DB:         db,
 		Logger:     logger,
 	}
 }

@@ -1,13 +1,20 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/golang-jwt/jwt/v5"
 )
+
+// |++++++++++++++++++++++++++++++++++++++|
+// |              Middleware              |
+// |++++++++++++++++++++++++++++++++++++++|
 
 const DEFAULT_LIMIT = 10
 
@@ -33,6 +40,134 @@ func makeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
 	}
 }
 
+// withJWTUserAuth is authentication middleware for routes handling the user resource.
+func withJWTUserAuth(handlerFunc http.HandlerFunc, s *Storer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tokenStr := r.Header.Get("x-jwt-token")
+		if tokenStr == "" {
+			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+				Type:   errTypeForbidden,
+				Title:  "Access Denied",
+				Status: http.StatusForbidden,
+			})
+			return
+		}
+
+		token, err := validateJWT(tokenStr)
+		if err != nil {
+			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+				Type:   errTypeForbidden,
+				Title:  "Access Denied",
+				Status: http.StatusForbidden,
+			})
+			return
+		}
+
+		userID, err := strconv.Atoi(r.PathValue("id"))
+		if err != nil {
+			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+				Type:   errTypeForbidden,
+				Title:  "Access Denied",
+				Status: http.StatusForbidden,
+			})
+			return
+		}
+
+		usr, err := s.GetUserByID(userID)
+		if err != nil {
+			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+				Type:   errTypeForbidden,
+				Title:  "Access Denied",
+				Status: http.StatusForbidden,
+			})
+			return
+		}
+
+		claims := token.Claims.(jwt.MapClaims)
+		if usr.ID != int(claims["sub"].(float64)) {
+			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+				Type:   errTypeForbidden,
+				Title:  "Access Denied",
+				Status: http.StatusForbidden,
+			})
+			return
+		}
+
+		handlerFunc(w, r)
+	}
+}
+
+// withJWTTodoAuth is authentication middleware for routes handling the todo resource.
+func withJWTTodoAuth(handlerFunc http.HandlerFunc, s *Storer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		tokenStr := r.Header.Get("x-jwt-token")
+		if tokenStr == "" {
+			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+				Type:   errTypeForbidden,
+				Title:  "Access Denied",
+				Status: http.StatusForbidden,
+			})
+			return
+		}
+
+		token, err := validateJWT(tokenStr)
+		if err != nil {
+			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+				Type:   errTypeForbidden,
+				Title:  "Access Denied",
+				Status: http.StatusForbidden,
+			})
+			return
+		}
+
+		todoID, err := strconv.Atoi(r.PathValue("id"))
+		if err != nil {
+			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+				Type:   errTypeForbidden,
+				Title:  "Access Denied",
+				Status: http.StatusForbidden,
+			})
+			return
+		}
+
+		todo, err := s.GetTodoMetadataByID(todoID)
+		if err != nil {
+			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+				Type:   errTypeForbidden,
+				Title:  "Access Denied",
+				Status: http.StatusForbidden,
+			})
+			return
+		}
+
+		claims := token.Claims.(jwt.MapClaims)
+		if todo.UserID != int(claims["sub"].(float64)) {
+			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+				Type:   errTypeForbidden,
+				Title:  "Access Denied",
+				Status: http.StatusForbidden,
+			})
+			return
+		}
+
+		handlerFunc(w, r)
+	}
+}
+
+func validateJWT(tokenStr string) (*jwt.Token, error) {
+	secret := os.Getenv("JWT_SECRET_TOKEN")
+	return jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodEd25519); !ok {
+			return nil, fmt.Errorf("Incorrect signing method: %s", t.Header["alg"])
+		}
+		return secret, nil
+	})
+}
+
+// |++++++++++++++++++++++++++++++++++++++|
+// |          Server and Handlers         |
+// |++++++++++++++++++++++++++++++++++++++|
+
 type restServer struct {
 	listenAddr string
 	logger     *slog.Logger
@@ -50,18 +185,20 @@ func NewRestServer(cfg *config, storer *Storer) *restServer {
 func (s *restServer) Run() {
 	// User endpoints: crud and login of users
 	http.HandleFunc("POST /v1/user", makeHTTPHandleFunc(s.handleCreateUser))
+	http.HandleFunc("POST /v1/user/login", makeHTTPHandleFunc(s.handleLoginUser))
+
 	// Todo endpoints: crud on the todo list entity
-	http.HandleFunc("GET /v1/todos", makeHTTPHandleFunc(s.handleGetTodos))
 	http.HandleFunc("POST /v1/todos", makeHTTPHandleFunc(s.handleCreateTodo))
-	http.HandleFunc("GET /v1/todos/{id}", makeHTTPHandleFunc(s.handleGetTodo))
-	http.HandleFunc("PUT /v1/todos/{id}", makeHTTPHandleFunc(s.handleUpdateTodo))
-	http.HandleFunc("DELETE /v1/todos/{id}", makeHTTPHandleFunc(s.handleDeleteTodo))
+	http.HandleFunc("GET /v1/todos", withJWTTodoAuth(makeHTTPHandleFunc(s.handleGetTodos), s.storer))
+	http.HandleFunc("GET /v1/todos/{id}", withJWTTodoAuth(makeHTTPHandleFunc(s.handleGetTodo), s.storer))
+	http.HandleFunc("PUT /v1/todos/{id}", withJWTTodoAuth(makeHTTPHandleFunc(s.handleUpdateTodo), s.storer))
+	http.HandleFunc("DELETE /v1/todos/{id}", withJWTTodoAuth(makeHTTPHandleFunc(s.handleDeleteTodo), s.storer))
 
 	// Todo item endpoints: crud on todo list items
-	http.HandleFunc("GET /v1/todos/{id}/items", makeHTTPHandleFunc(s.handleGetTodoItems))
-	http.HandleFunc("POST /v1/todos/{id}/items", makeHTTPHandleFunc(s.handleAddTodoItem))
-	http.HandleFunc("PUT /v1/todos/{id}/items/{itemNo}", makeHTTPHandleFunc(s.handleEditTodoItem))
-	http.HandleFunc("DELETE /v1/todos/{id}/items/{itemNo}", makeHTTPHandleFunc(s.handleDeleteTodoItem))
+	http.HandleFunc("GET /v1/todos/{id}/items", withJWTTodoAuth(makeHTTPHandleFunc(s.handleGetTodoItems), s.storer))
+	http.HandleFunc("POST /v1/todos/{id}/items", withJWTTodoAuth(makeHTTPHandleFunc(s.handleAddTodoItem), s.storer))
+	http.HandleFunc("PUT /v1/todos/{id}/items/{itemNo}", withJWTTodoAuth(makeHTTPHandleFunc(s.handleEditTodoItem), s.storer))
+	http.HandleFunc("DELETE /v1/todos/{id}/items/{itemNo}", withJWTTodoAuth(makeHTTPHandleFunc(s.handleDeleteTodoItem), s.storer))
 
 	log.Printf("server listening on port: %s", s.listenAddr)
 
@@ -76,9 +213,9 @@ func (s *restServer) handleCreateUser(w http.ResponseWriter, r *http.Request) *a
 		return badRequestResponseV2("invalid data", err)
 	}
 
-	val := validator.New()
+	validate := validator.New()
 
-	err := val.Struct(user)
+	err := validate.Struct(user)
 	if err != nil {
 		return badRequestResponseV2("invalid data", err)
 	}
@@ -95,22 +232,57 @@ func (s *restServer) handleCreateUser(w http.ResponseWriter, r *http.Request) *a
 	return nil
 }
 
+func (s *restServer) handleLoginUser(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+	ctx := r.Context()
+
+	var user User
+	if err := ReadJSON(w, r, &user); err != nil {
+		return badRequestResponseV2("invalid data", err)
+	}
+
+	validate := validator.New()
+	err := validate.Struct(user)
+	if err != nil {
+		return badRequestResponseV2("invalid data", err)
+	}
+
+	registeredUser, err := s.storer.GetUserByEmail(ctx, user.Email)
+	if err != nil {
+		return badRequestResponseV2("invalid data", err)
+	}
+
+	if !checkPasswordHash(user.Email, registeredUser.Password) {
+		return badRequestResponseV2("wrong password", err)
+	}
+
+	token, err := createAccessToken(user.ID)
+	if err != nil {
+		return internalErrorResponseV2("failed to log in user", err)
+	}
+
+	SuccessfulLoginResponse(w, token)
+	return nil
+}
+
 func (s *restServer) handleGetTodos(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	queryParams := r.URL.Query()
-
 	page, err := strconv.Atoi(queryParams.Get("page"))
 	if err != nil {
 		page = 0
 	}
-
 	limit, err := strconv.Atoi(queryParams.Get("limit"))
 	if err != nil {
 		limit = DEFAULT_LIMIT
 	}
 
-	resp, err := s.storer.GetTodos(ctx, limit, page)
+	userID, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		return badRequestResponseV2("invalid data", err)
+	}
+
+	resp, err := s.storer.GetTodosByUserID(ctx, userID, limit, page)
 	if err != nil {
 		switch err {
 		case errNotFound:
