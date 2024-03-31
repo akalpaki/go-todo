@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -136,50 +135,43 @@ func withJWTTodoAuth(handlerFunc http.HandlerFunc, s *Storer) http.HandlerFunc {
 // |++++++++++++++++++++++++++++++++++++++|
 
 type application struct {
-	listenAddr string
-	logger     *slog.Logger
-	storer     *Storer
-	handler    *http.ServeMux
+	logger  *slog.Logger
+	storer  *Storer
+	handler *http.ServeMux
 }
 
-func NewApplication(cfg *config, storer *Storer) *application {
-	return &application{
-		listenAddr: cfg.ListenAddr,
-		logger:     cfg.Logger,
-		storer:     storer,
+func NewApplication(logger *slog.Logger, storer *Storer) *application {
+	app := &application{
+		logger: logger,
+		storer: storer,
 	}
+	app.SetupRoutes()
+	return app
 }
 
-func API() {
+func (a *application) SetupRoutes() {
 	mux := http.NewServeMux()
-
-	mux.HandleFunc("POST /v1/user", makeHTTPHandleFunc(s.handleCreateUser))
-}
-
-func (s *application) Run() {
 	// User endpoints: crud and login of users
-	http.HandleFunc()
-	http.HandleFunc("POST /v1/user/login", makeHTTPHandleFunc(s.handleLoginUser))
+	mux.HandleFunc("POST /v1/user", makeHTTPHandleFunc(a.handleCreateUser))
+	mux.HandleFunc("POST /v1/user/login", makeHTTPHandleFunc(a.handleLoginUser))
 
 	// Todo endpoints: crud on the todo list entity
-	http.HandleFunc("POST /v1/todos", makeHTTPHandleFunc(s.handleCreateTodo))
-	http.HandleFunc("GET /v1/todos", withJWTTodoAuth(makeHTTPHandleFunc(s.handleGetTodos), s.storer))
-	http.HandleFunc("GET /v1/todos/{id}", withJWTTodoAuth(makeHTTPHandleFunc(s.handleGetTodo), s.storer))
-	http.HandleFunc("PUT /v1/todos/{id}", withJWTTodoAuth(makeHTTPHandleFunc(s.handleUpdateTodo), s.storer))
-	http.HandleFunc("DELETE /v1/todos/{id}", withJWTTodoAuth(makeHTTPHandleFunc(s.handleDeleteTodo), s.storer))
+	mux.HandleFunc("POST /v1/todos", makeHTTPHandleFunc(a.handleCreateTodo))
+	mux.HandleFunc("GET /v1/todos", withJWTTodoAuth(makeHTTPHandleFunc(a.handleGetTodos), a.storer))
+	mux.HandleFunc("GET /v1/todos/{id}", withJWTTodoAuth(makeHTTPHandleFunc(a.handleGetTodo), a.storer))
+	mux.HandleFunc("PUT /v1/todos/{id}", withJWTTodoAuth(makeHTTPHandleFunc(a.handleUpdateTodo), a.storer))
+	mux.HandleFunc("DELETE /v1/todos/{id}", withJWTTodoAuth(makeHTTPHandleFunc(a.handleDeleteTodo), a.storer))
 
 	// Todo item endpoints: crud on todo list items
-	http.HandleFunc("GET /v1/todos/{id}/items", withJWTTodoAuth(makeHTTPHandleFunc(s.handleGetTodoItems), s.storer))
-	http.HandleFunc("POST /v1/todos/{id}/items", withJWTTodoAuth(makeHTTPHandleFunc(s.handleAddTodoItem), s.storer))
-	http.HandleFunc("PUT /v1/todos/{id}/items/{itemNo}", withJWTTodoAuth(makeHTTPHandleFunc(s.handleEditTodoItem), s.storer))
-	http.HandleFunc("DELETE /v1/todos/{id}/items/{itemNo}", withJWTTodoAuth(makeHTTPHandleFunc(s.handleDeleteTodoItem), s.storer))
+	mux.HandleFunc("GET /v1/todos/{id}/items", withJWTTodoAuth(makeHTTPHandleFunc(a.handleGetTodoItems), a.storer))
+	mux.HandleFunc("POST /v1/todos/{id}/items", withJWTTodoAuth(makeHTTPHandleFunc(a.handleAddTodoItem), a.storer))
+	mux.HandleFunc("PUT /v1/todos/{id}/items/{itemNo}", withJWTTodoAuth(makeHTTPHandleFunc(a.handleEditTodoItem), a.storer))
+	mux.HandleFunc("DELETE /v1/todos/{id}/items/{itemNo}", withJWTTodoAuth(makeHTTPHandleFunc(a.handleDeleteTodoItem), a.storer))
 
-	log.Printf("server listening on port: %s", s.listenAddr)
-
-	log.Fatal(http.ListenAndServe(s.listenAddr, nil))
+	a.handler = mux
 }
 
-func (s *application) handleCreateUser(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (a *application) handleCreateUser(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	var user User
@@ -194,7 +186,7 @@ func (s *application) handleCreateUser(w http.ResponseWriter, r *http.Request) *
 		return badRequestResponseV2("invalid data", err)
 	}
 
-	registeredUser, err := s.storer.CreateUser(ctx, user)
+	registeredUser, err := a.storer.CreateUser(ctx, user)
 	if err != nil {
 		return internalErrorResponseV2("failed to create user", err)
 	}
@@ -206,7 +198,7 @@ func (s *application) handleCreateUser(w http.ResponseWriter, r *http.Request) *
 	return nil
 }
 
-func (s *application) handleLoginUser(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (a *application) handleLoginUser(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	var user User
@@ -220,7 +212,7 @@ func (s *application) handleLoginUser(w http.ResponseWriter, r *http.Request) *a
 		return badRequestResponseV2("invalid data", err)
 	}
 
-	registeredUser, err := s.storer.GetUserByEmail(ctx, user.Email)
+	registeredUser, err := a.storer.GetUserByEmail(ctx, user.Email)
 	if err != nil {
 		return badRequestResponseV2("invalid data", err)
 	}
@@ -238,7 +230,7 @@ func (s *application) handleLoginUser(w http.ResponseWriter, r *http.Request) *a
 	return nil
 }
 
-func (s *application) handleGetTodos(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (a *application) handleGetTodos(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	queryParams := r.URL.Query()
@@ -256,7 +248,7 @@ func (s *application) handleGetTodos(w http.ResponseWriter, r *http.Request) *ap
 		return badRequestResponseV2("invalid data", err)
 	}
 
-	resp, err := s.storer.GetTodosByUserID(ctx, userID, limit, page)
+	resp, err := a.storer.GetTodosByUserID(ctx, userID, limit, page)
 	if err != nil {
 		switch err {
 		case errNotFound:
@@ -273,7 +265,7 @@ func (s *application) handleGetTodos(w http.ResponseWriter, r *http.Request) *ap
 	return nil
 }
 
-func (s *application) handleGetTodo(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (a *application) handleGetTodo(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	id, err := strconv.Atoi(r.PathValue("id"))
@@ -281,7 +273,7 @@ func (s *application) handleGetTodo(w http.ResponseWriter, r *http.Request) *api
 		return badRequestResponseV2("invalid todo list id", err)
 	}
 
-	resp, err := s.storer.GetTodo(ctx, id)
+	resp, err := a.storer.GetTodo(ctx, id)
 	if err != nil {
 		switch err {
 		case errNotFound:
@@ -298,7 +290,7 @@ func (s *application) handleGetTodo(w http.ResponseWriter, r *http.Request) *api
 	return nil
 }
 
-func (s *application) handleCreateTodo(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (a *application) handleCreateTodo(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	var todo CreateTodo
@@ -307,7 +299,7 @@ func (s *application) handleCreateTodo(w http.ResponseWriter, r *http.Request) *
 		return badRequestResponseV2("invalid data", err)
 	}
 
-	out, err := s.storer.CreateTodo(ctx, todo)
+	out, err := a.storer.CreateTodo(ctx, todo)
 	if err != nil {
 		return internalErrorResponseV2("failed to create todo list", err)
 	}
@@ -319,7 +311,7 @@ func (s *application) handleCreateTodo(w http.ResponseWriter, r *http.Request) *
 	return nil
 }
 
-func (s *application) handleUpdateTodo(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (a *application) handleUpdateTodo(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	var update UpdateTodo
@@ -333,7 +325,7 @@ func (s *application) handleUpdateTodo(w http.ResponseWriter, r *http.Request) *
 		return badRequestResponseV2("invalid data", err)
 	}
 
-	err = s.storer.UpdateTodo(ctx, id, update)
+	err = a.storer.UpdateTodo(ctx, id, update)
 	if err != nil {
 		switch err {
 		case errNotFound:
@@ -350,7 +342,7 @@ func (s *application) handleUpdateTodo(w http.ResponseWriter, r *http.Request) *
 	return nil
 }
 
-func (s *application) handleDeleteTodo(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (a *application) handleDeleteTodo(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	id, err := strconv.Atoi(r.PathValue("id"))
@@ -358,7 +350,7 @@ func (s *application) handleDeleteTodo(w http.ResponseWriter, r *http.Request) *
 		return badRequestResponseV2("invalid todo list id", err)
 	}
 
-	if err := s.storer.DeleteTodo(ctx, id); err != nil {
+	if err := a.storer.DeleteTodo(ctx, id); err != nil {
 		switch err {
 		case errNotFound:
 			return notFoundResponseV2()
@@ -374,7 +366,7 @@ func (s *application) handleDeleteTodo(w http.ResponseWriter, r *http.Request) *
 	return nil
 }
 
-func (s *application) handleGetTodoItems(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (a *application) handleGetTodoItems(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	todoID, err := strconv.Atoi(r.PathValue("id"))
@@ -382,7 +374,7 @@ func (s *application) handleGetTodoItems(w http.ResponseWriter, r *http.Request)
 		return badRequestResponseV2("invalid todo list id", err)
 	}
 
-	items, err := s.storer.GetTodoItems(ctx, todoID)
+	items, err := a.storer.GetTodoItems(ctx, todoID)
 	if err != nil {
 		switch err {
 		case errNotFound:
@@ -399,7 +391,7 @@ func (s *application) handleGetTodoItems(w http.ResponseWriter, r *http.Request)
 	return nil
 }
 
-func (s *application) handleAddTodoItem(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (a *application) handleAddTodoItem(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	var item Item
@@ -408,7 +400,7 @@ func (s *application) handleAddTodoItem(w http.ResponseWriter, r *http.Request) 
 		return badRequestResponseV2("invalid data", err)
 	}
 
-	if err := s.storer.AddTodoItem(ctx, item); err != nil {
+	if err := a.storer.AddTodoItem(ctx, item); err != nil {
 		switch err {
 		case errNotFound:
 			return notFoundResponseV2()
@@ -420,7 +412,7 @@ func (s *application) handleAddTodoItem(w http.ResponseWriter, r *http.Request) 
 	return nil
 }
 
-func (s *application) handleEditTodoItem(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (a *application) handleEditTodoItem(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	var item Item
@@ -429,7 +421,7 @@ func (s *application) handleEditTodoItem(w http.ResponseWriter, r *http.Request)
 		return badRequestResponseV2("invalid data", err)
 	}
 
-	if err := s.storer.UpdateTodoItem(ctx, item); err != nil {
+	if err := a.storer.UpdateTodoItem(ctx, item); err != nil {
 		switch err {
 		case errNotFound:
 			return notFoundResponseV2()
@@ -441,7 +433,7 @@ func (s *application) handleEditTodoItem(w http.ResponseWriter, r *http.Request)
 	return nil
 }
 
-func (s *application) handleDeleteTodoItem(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (a *application) handleDeleteTodoItem(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	id, err := strconv.Atoi(r.PathValue("itemNo"))
@@ -449,7 +441,7 @@ func (s *application) handleDeleteTodoItem(w http.ResponseWriter, r *http.Reques
 		return badRequestResponseV2("invalid item number", err)
 	}
 
-	if err := s.storer.DeleteTodoItem(ctx, id); err != nil {
+	if err := a.storer.DeleteTodoItem(ctx, id); err != nil {
 		switch err {
 		case errNotFound:
 			return notFoundResponseV2()

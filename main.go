@@ -1,6 +1,12 @@
 package main
 
-import "database/sql"
+import (
+	"database/sql"
+	"log"
+	"log/slog"
+	"net/http"
+	"os"
+)
 
 const MIGRATION_TEMP = `
 create table if not exists todo (id integer not null primary key autoincrement, name text not null);
@@ -16,12 +22,40 @@ func runMigration(db *sql.DB) {
 }
 
 func main() {
-	cfg := LoadConfig()
+	cfg := loadCfg()
 
-	runMigration(cfg.DB)
+	var logger *slog.Logger
+	switch cfg.Env {
+	case ENV_DEV:
+		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{AddSource: true, Level: slog.LevelDebug}))
+	case ENV_PROD:
+		logOutput, err := os.Create("logs.json")
+		if err != nil {
+			log.Fatalf("unable to setup logger, error=%s", err.Error())
+		}
+		logger = slog.New(slog.NewJSONHandler(logOutput, &slog.HandlerOptions{AddSource: false, Level: slog.LevelInfo}))
+	default:
+		log.Fatalln("provided environment is invalid")
+	}
 
-	storer := NewStorer(cfg.DB)
+	conn, err := sql.Open("sqlite3", cfg.ConnectionStr)
+	if err != nil {
+		log.Fatalf("unable to establish database connection, error=%s", err.Error())
+	}
 
-	app := NewApplication(cfg, storer)
-	app.Run()
+	if err := conn.Ping(); err != nil {
+		log.Fatalf("unable to establish database connection, error=%s", err.Error())
+	}
+
+	runMigration(conn)
+	storer := NewStorer(conn)
+	app := NewApplication(logger, storer)
+
+	srv := http.Server{
+		Addr:    cfg.ListenAddr,
+		Handler: app.handler,
+	}
+
+	log.Println("Server starting at port", srv.Addr)
+	log.Fatal(srv.ListenAndServe())
 }
