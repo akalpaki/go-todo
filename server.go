@@ -135,23 +135,30 @@ func withJWTTodoAuth(handlerFunc http.HandlerFunc, s *Storer) http.HandlerFunc {
 // |          Server and Handlers         |
 // |++++++++++++++++++++++++++++++++++++++|
 
-type restServer struct {
+type application struct {
 	listenAddr string
 	logger     *slog.Logger
 	storer     *Storer
+	handler    *http.ServeMux
 }
 
-func NewRestServer(cfg *config, storer *Storer) *restServer {
-	return &restServer{
+func NewApplication(cfg *config, storer *Storer) *application {
+	return &application{
 		listenAddr: cfg.ListenAddr,
 		logger:     cfg.Logger,
 		storer:     storer,
 	}
 }
 
-func (s *restServer) Run() {
+func API() {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("POST /v1/user", makeHTTPHandleFunc(s.handleCreateUser))
+}
+
+func (s *application) Run() {
 	// User endpoints: crud and login of users
-	http.HandleFunc("POST /v1/user", makeHTTPHandleFunc(s.handleCreateUser))
+	http.HandleFunc()
 	http.HandleFunc("POST /v1/user/login", makeHTTPHandleFunc(s.handleLoginUser))
 
 	// Todo endpoints: crud on the todo list entity
@@ -172,7 +179,7 @@ func (s *restServer) Run() {
 	log.Fatal(http.ListenAndServe(s.listenAddr, nil))
 }
 
-func (s *restServer) handleCreateUser(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (s *application) handleCreateUser(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	var user User
@@ -199,7 +206,7 @@ func (s *restServer) handleCreateUser(w http.ResponseWriter, r *http.Request) *a
 	return nil
 }
 
-func (s *restServer) handleLoginUser(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (s *application) handleLoginUser(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	var user User
@@ -218,7 +225,7 @@ func (s *restServer) handleLoginUser(w http.ResponseWriter, r *http.Request) *ap
 		return badRequestResponseV2("invalid data", err)
 	}
 
-	if !checkPasswordHash(user.Email, registeredUser.Password) {
+	if !checkPasswordHash(user.Password, registeredUser.Password) {
 		return badRequestResponseV2("wrong password", err)
 	}
 
@@ -231,7 +238,7 @@ func (s *restServer) handleLoginUser(w http.ResponseWriter, r *http.Request) *ap
 	return nil
 }
 
-func (s *restServer) handleGetTodos(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (s *application) handleGetTodos(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	queryParams := r.URL.Query()
@@ -266,7 +273,7 @@ func (s *restServer) handleGetTodos(w http.ResponseWriter, r *http.Request) *api
 	return nil
 }
 
-func (s *restServer) handleGetTodo(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (s *application) handleGetTodo(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	id, err := strconv.Atoi(r.PathValue("id"))
@@ -291,7 +298,7 @@ func (s *restServer) handleGetTodo(w http.ResponseWriter, r *http.Request) *apiE
 	return nil
 }
 
-func (s *restServer) handleCreateTodo(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (s *application) handleCreateTodo(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	var todo CreateTodo
@@ -312,7 +319,7 @@ func (s *restServer) handleCreateTodo(w http.ResponseWriter, r *http.Request) *a
 	return nil
 }
 
-func (s *restServer) handleUpdateTodo(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (s *application) handleUpdateTodo(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	var update UpdateTodo
@@ -343,7 +350,7 @@ func (s *restServer) handleUpdateTodo(w http.ResponseWriter, r *http.Request) *a
 	return nil
 }
 
-func (s *restServer) handleDeleteTodo(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (s *application) handleDeleteTodo(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	id, err := strconv.Atoi(r.PathValue("id"))
@@ -367,7 +374,7 @@ func (s *restServer) handleDeleteTodo(w http.ResponseWriter, r *http.Request) *a
 	return nil
 }
 
-func (s *restServer) handleGetTodoItems(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (s *application) handleGetTodoItems(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	todoID, err := strconv.Atoi(r.PathValue("id"))
@@ -392,7 +399,7 @@ func (s *restServer) handleGetTodoItems(w http.ResponseWriter, r *http.Request) 
 	return nil
 }
 
-func (s *restServer) handleAddTodoItem(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (s *application) handleAddTodoItem(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	var item Item
@@ -413,7 +420,7 @@ func (s *restServer) handleAddTodoItem(w http.ResponseWriter, r *http.Request) *
 	return nil
 }
 
-func (s *restServer) handleEditTodoItem(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (s *application) handleEditTodoItem(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	var item Item
@@ -434,7 +441,7 @@ func (s *restServer) handleEditTodoItem(w http.ResponseWriter, r *http.Request) 
 	return nil
 }
 
-func (s *restServer) handleDeleteTodoItem(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
+func (s *application) handleDeleteTodoItem(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
 	id, err := strconv.Atoi(r.PathValue("itemNo"))

@@ -22,6 +22,6 @@ func main() {
 
 	storer := NewStorer(cfg.DB)
 
-	app := NewRestServer(cfg, storer)
+	app := NewApplication(cfg, storer)
 	app.Run()
 }

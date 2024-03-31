@@ -50,3 +50,19 @@ func LoadConfig() *config {
 		Logger:     logger,
 	}
 }
+
+func LoadTestConfig() *config {
+	env := "testing"
+	listenAddr := ":4555"
+	db, err := sql.Open("sqlite3", "file:todo_test.db")
+	if err != nil {
+		log.Fatalf("failed to open db connection: error=%s", err.Error())
+	}
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	return &config{
+		Env:        env,
+		ListenAddr: listenAddr,
+		DB:         db,
+		Logger:     logger,
+	}
+}
