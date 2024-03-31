@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 const MIGRATION_TEMP = `
@@ -48,8 +50,8 @@ func main() {
 	}
 
 	runMigration(conn)
-	storer := NewStorer(conn)
-	app := NewApplication(logger, storer)
+	storer := newRepository(conn)
+	app := newApplication(logger, storer)
 
 	srv := http.Server{
 		Addr:    cfg.ListenAddr,

@@ -48,7 +48,7 @@ func (e *apiErrorV2) Error() string {
 	return e.Title + " : " + e.underlying.Error()
 }
 
-func (e *apiErrorV2) ResponseBody() ([]byte, error) {
+func (e *apiErrorV2) responseBody() ([]byte, error) {
 	body, err := json.Marshal(e)
 	if err != nil {
 		return nil, fmt.Errorf("error while parsing response body: %s", err.Error())
@@ -56,7 +56,7 @@ func (e *apiErrorV2) ResponseBody() ([]byte, error) {
 	return body, nil
 }
 
-func (e *apiErrorV2) ResponseHeaders() (int, map[string]string) {
+func (e *apiErrorV2) responseHeaders() (int, map[string]string) {
 	return e.Status, map[string]string{
 		"Content-Type": "application/problem+json",
 	}

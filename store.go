@@ -12,17 +12,17 @@ var (
 	errNotFound = errors.New("entry not found")
 )
 
-type Storer struct {
+type repository struct {
 	DB *sql.DB
 }
 
-func NewStorer(db *sql.DB) *Storer {
-	return &Storer{
+func newRepository(db *sql.DB) *repository {
+	return &repository{
 		DB: db,
 	}
 }
 
-func (s *Storer) CreateUser(ctx context.Context, user User) (User, error) {
+func (r *repository) CreateUser(ctx context.Context, user User) (User, error) {
 	var err error
 
 	user.Password, err = hashPassword(user.Password)
@@ -30,7 +30,7 @@ func (s *Storer) CreateUser(ctx context.Context, user User) (User, error) {
 		return User{}, err
 	}
 
-	res, err := s.DB.ExecContext(ctx, "insert into user (email, password) values (?, ?)", user.Email, user.Password)
+	res, err := r.DB.ExecContext(ctx, "insert into user (email, password) values (?, ?)", user.Email, user.Password)
 	if err != nil {
 		return User{}, err
 	}
@@ -44,19 +44,19 @@ func (s *Storer) CreateUser(ctx context.Context, user User) (User, error) {
 	return user, nil
 }
 
-func (s *Storer) GetUserByEmail(ctx context.Context, email string) (User, error) {
+func (r *repository) GetUserByEmail(ctx context.Context, email string) (User, error) {
 	var registeredUser User
 
-	res := s.DB.QueryRowContext(ctx, "select * from user where email = ?", email)
+	res := r.DB.QueryRowContext(ctx, "select * from user where email = ?", email)
 	if err := res.Scan(&registeredUser); err != nil {
 		return User{}, err
 	}
 	return registeredUser, nil
 }
 
-func (s *Storer) GetUserByID(id int) (User, error) {
+func (r *repository) GetUserByID(id int) (User, error) {
 	var registeredUser User
-	row := s.DB.QueryRow("select * from user where id = ?", id)
+	row := r.DB.QueryRow("select * from user where id = ?", id)
 	if err := row.Scan(&registeredUser); err != nil {
 		return User{}, err
 	}
@@ -64,11 +64,11 @@ func (s *Storer) GetUserByID(id int) (User, error) {
 }
 
 // GetTodosByUserID retrieves the previews of the todo lists for a specific user from the database. It does NOT return the items.
-func (s *Storer) GetTodosByUserID(ctx context.Context, userID int, limit, page int) ([]Todo, error) {
+func (r *repository) GetTodosByUserID(ctx context.Context, userID int, limit, page int) ([]Todo, error) {
 	res := make([]Todo, 0)
 
 	offset := calculateOffset(page, limit)
-	rows, err := s.DB.QueryContext(ctx, "select * from todo where user_id = ? order by id limit ? offset ?", userID, limit, offset)
+	rows, err := r.DB.QueryContext(ctx, "select * from todo where user_id = ? order by id limit ? offset ?", userID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -83,15 +83,15 @@ func (s *Storer) GetTodosByUserID(ctx context.Context, userID int, limit, page i
 }
 
 // GetTodo returns a specific todo list along with its items.
-func (s *Storer) GetTodo(ctx context.Context, id int) (Todo, error) {
+func (r *repository) GetTodo(ctx context.Context, id int) (Todo, error) {
 	var res Todo
 
-	tdRow := s.DB.QueryRowContext(ctx, "select id, name from todo where id = ?", id)
+	tdRow := r.DB.QueryRowContext(ctx, "select id, name from todo where id = ?", id)
 	if err := tdRow.Scan(&res.ID, &res.Name); err != nil {
 		return Todo{}, err
 	}
 
-	itemRows, err := s.DB.QueryContext(ctx, "select * from todo_item where todo_id = ?", id)
+	itemRows, err := r.DB.QueryContext(ctx, "select * from todo_item where todo_id = ?", id)
 	if err != nil {
 		return Todo{}, err
 	}
@@ -108,9 +108,9 @@ func (s *Storer) GetTodo(ctx context.Context, id int) (Todo, error) {
 }
 
 // GetTodoMetadataByID returns only the metadata about a todo list stored in the todo table. Currently used for auth purposes.
-func (s *Storer) GetTodoMetadataByID(id int) (Todo, error) {
+func (r *repository) GetTodoMetadataByID(id int) (Todo, error) {
 	var res Todo
-	row := s.DB.QueryRow("select * from todo where id = ?", id)
+	row := r.DB.QueryRow("select * from todo where id = ?", id)
 	if err := row.Scan(&res); err != nil {
 		return Todo{}, err
 	}
@@ -118,18 +118,18 @@ func (s *Storer) GetTodoMetadataByID(id int) (Todo, error) {
 }
 
 // CreateTodo creates a new Todo list. If todo items are passed, they are added to the list.
-func (s *Storer) CreateTodo(ctx context.Context, ct CreateTodo) (Todo, error) {
+func (r *repository) CreateTodo(ctx context.Context, ct CreateTodo) (Todo, error) {
 	newTodo := Todo{
 		Name:  ct.Name,
 		Items: ct.Items,
 	}
 
-	addItem, prepErr := s.DB.Prepare("insert into todo_item(itemNo, content, done, todo_id) values (?,?,?,?)") // TODO: look into preparing these once somewhere, maybe sync once?
+	addItem, prepErr := r.DB.Prepare("insert into todo_item(itemNo, content, done, todo_id) values (?,?,?,?)") // TODO: look into preparing these once somewhere, maybe sync once?
 	if prepErr != nil {
 		return Todo{}, prepErr
 	}
 
-	tx, err := s.DB.BeginTx(ctx, nil)
+	tx, err := r.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return Todo{}, err
 	}
@@ -167,9 +167,9 @@ func (s *Storer) CreateTodo(ctx context.Context, ct CreateTodo) (Todo, error) {
 }
 
 // UpdateTodo updates a todo list's information
-func (s *Storer) UpdateTodo(ctx context.Context, id int, updated UpdateTodo) error {
+func (r *repository) UpdateTodo(ctx context.Context, id int, updated UpdateTodo) error {
 	if updated.Name != nil {
-		_, err := s.DB.ExecContext(ctx, "update todo set name = ? where id = ?", updated.Name, id)
+		_, err := r.DB.ExecContext(ctx, "update todo set name = ? where id = ?", updated.Name, id)
 		if err != nil {
 			return err
 		}
@@ -178,8 +178,8 @@ func (s *Storer) UpdateTodo(ctx context.Context, id int, updated UpdateTodo) err
 }
 
 // DeleteTodo deletes an entire todo list.
-func (s *Storer) DeleteTodo(ctx context.Context, id int) error {
-	_, err := s.DB.Exec("delete from todo where id = ?", id)
+func (r *repository) DeleteTodo(ctx context.Context, id int) error {
+	_, err := r.DB.Exec("delete from todo where id = ?", id)
 	if err != nil {
 		return err
 	}
@@ -187,10 +187,10 @@ func (s *Storer) DeleteTodo(ctx context.Context, id int) error {
 }
 
 // GetTodoItems retrieves todo list items for a given todo list id
-func (s *Storer) GetTodoItems(ctx context.Context, todoID int) ([]Item, error) {
+func (r *repository) GetTodoItems(ctx context.Context, todoID int) ([]Item, error) {
 	items := make([]Item, 0)
 
-	rows, err := s.DB.QueryContext(ctx, "select * from todo_item where todo_id = ?", todoID)
+	rows, err := r.DB.QueryContext(ctx, "select * from todo_item where todo_id = ?", todoID)
 	if err != nil {
 		return nil, err
 	}
@@ -205,16 +205,16 @@ func (s *Storer) GetTodoItems(ctx context.Context, todoID int) ([]Item, error) {
 	return items, nil
 }
 
-func (s *Storer) AddTodoItem(ctx context.Context, item Item) error {
-	_, err := s.DB.ExecContext(ctx, "insert into todo_item (itemNo, content, done, todo_id) values (?,?,?,?)", item.ItemNo, item.Content, item.Done, item.TodoID)
+func (r *repository) AddTodoItem(ctx context.Context, item Item) error {
+	_, err := r.DB.ExecContext(ctx, "insert into todo_item (itemNo, content, done, todo_id) values (?,?,?,?)", item.ItemNo, item.Content, item.Done, item.TodoID)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *Storer) UpdateTodoItem(ctx context.Context, update Item) error {
-	_, err := s.DB.ExecContext(ctx, "update todo_item set content = ?, done = ? where todo_id = ? and itemNo = ?", update.Content, update.Done, update.TodoID, update.ItemNo)
+func (r *repository) UpdateTodoItem(ctx context.Context, update Item) error {
+	_, err := r.DB.ExecContext(ctx, "update todo_item set content = ?, done = ? where todo_id = ? and itemNo = ?", update.Content, update.Done, update.TodoID, update.ItemNo)
 	if err != nil {
 		return err
 	}
@@ -222,8 +222,8 @@ func (s *Storer) UpdateTodoItem(ctx context.Context, update Item) error {
 }
 
 // DeleteTodoItem deletes a specific todo item
-func (s *Storer) DeleteTodoItem(ctx context.Context, itemID int) error {
-	_, err := s.DB.Exec("delete from todo_item where id = ?")
+func (r *repository) DeleteTodoItem(ctx context.Context, itemID int) error {
+	_, err := r.DB.Exec("delete from todo_item where id = ?")
 	if err != nil {
 		return err
 	}

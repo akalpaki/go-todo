@@ -21,19 +21,19 @@ var (
 )
 
 // WriteJSON is a helper function which automatically writes JSON formated responses to the client.
-func WriteJSON(w http.ResponseWriter, status int, v any) error {
+func writeJSON(w http.ResponseWriter, status int, v any) error {
 	w.Header().Add("Content-Type", JSON_ENCODING)
 	w.WriteHeader(status)
 	return json.NewEncoder(w).Encode(v)
 }
 
-func SuccessfulLoginResponse(w http.ResponseWriter, token string) {
+func successfulLoginResponse(w http.ResponseWriter, token string) {
 	w.Header().Add("x-jwt-token", token)
 	w.WriteHeader(http.StatusOK)
 }
 
 // ReadJSON is a helper function which reads the contents of a JSON encoded message into a struct dst.
-func ReadJSON(w http.ResponseWriter, r *http.Request, dst any) error {
+func readJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 	ct := r.Header.Get("Content-Type")
 	if ct != JSON_ENCODING {
 		return ErrWrongContentType
@@ -65,7 +65,7 @@ func ReadJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 	return nil
 }
 
-func SeedUsersToTestDB(db *sql.DB) {
+func seedUsersToTestDB(db *sql.DB) {
 	_, err := db.Exec("insert into users (email, password) values ('test@test.com', 'pas123')")
 	if err != nil {
 		panic("failed to seed test user to test db")

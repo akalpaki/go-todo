@@ -24,11 +24,11 @@ func makeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
 			return
 		}
 		slog.Error(err.Title, "error", err.Error())
-		body, unmarshErr := err.ResponseBody()
+		body, unmarshErr := err.responseBody()
 		if unmarshErr != nil {
 			slog.Error("an error occured", "error", unmarshErr.Error())
 		}
-		status, headers := err.ResponseHeaders()
+		status, headers := err.responseHeaders()
 		for k, v := range headers {
 			w.Header().Set(k, v)
 		}
@@ -38,11 +38,11 @@ func makeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
 }
 
 // withJWTTodoAuth is authentication middleware for routes handling the todo resource.
-func withJWTTodoAuth(handlerFunc http.HandlerFunc, s *Storer) http.HandlerFunc {
+func withJWTTodoAuth(handlerFunc http.HandlerFunc, repo *repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tokenStr := r.Header.Get("x-jwt-token")
 		if tokenStr == "" {
-			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+			writeJSON(w, http.StatusForbidden, apiErrorV2{
 				Type:   errTypeForbidden,
 				Title:  "Access Denied",
 				Status: http.StatusForbidden,
@@ -52,7 +52,7 @@ func withJWTTodoAuth(handlerFunc http.HandlerFunc, s *Storer) http.HandlerFunc {
 
 		token, err := validateJWT(tokenStr)
 		if err != nil {
-			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+			writeJSON(w, http.StatusForbidden, apiErrorV2{
 				Type:   errTypeForbidden,
 				Title:  "Access Denied",
 				Status: http.StatusForbidden,
@@ -62,7 +62,7 @@ func withJWTTodoAuth(handlerFunc http.HandlerFunc, s *Storer) http.HandlerFunc {
 
 		todoID, err := strconv.Atoi(r.PathValue("id"))
 		if err != nil {
-			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+			writeJSON(w, http.StatusForbidden, apiErrorV2{
 				Type:   errTypeForbidden,
 				Title:  "Access Denied",
 				Status: http.StatusForbidden,
@@ -70,9 +70,9 @@ func withJWTTodoAuth(handlerFunc http.HandlerFunc, s *Storer) http.HandlerFunc {
 			return
 		}
 
-		todo, err := s.GetTodoMetadataByID(todoID)
+		todo, err := repo.GetTodoMetadataByID(todoID)
 		if err != nil {
-			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+			writeJSON(w, http.StatusForbidden, apiErrorV2{
 				Type:   errTypeForbidden,
 				Title:  "Access Denied",
 				Status: http.StatusForbidden,
@@ -82,7 +82,7 @@ func withJWTTodoAuth(handlerFunc http.HandlerFunc, s *Storer) http.HandlerFunc {
 
 		claims := token.Claims.(jwt.MapClaims)
 		if todo.UserID != int(claims["sub"].(float64)) {
-			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+			writeJSON(w, http.StatusForbidden, apiErrorV2{
 				Type:   errTypeForbidden,
 				Title:  "Access Denied",
 				Status: http.StatusForbidden,
@@ -91,7 +91,7 @@ func withJWTTodoAuth(handlerFunc http.HandlerFunc, s *Storer) http.HandlerFunc {
 		}
 
 		if claims["iss"] != "todo" {
-			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+			writeJSON(w, http.StatusForbidden, apiErrorV2{
 				Type:   errTypeForbidden,
 				Title:  "Access Denied",
 				Status: http.StatusForbidden,
@@ -100,7 +100,7 @@ func withJWTTodoAuth(handlerFunc http.HandlerFunc, s *Storer) http.HandlerFunc {
 		}
 
 		if claims["aud"] != "todo" {
-			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+			writeJSON(w, http.StatusForbidden, apiErrorV2{
 				Type:   errTypeForbidden,
 				Title:  "Access Denied",
 				Status: http.StatusForbidden,
@@ -109,7 +109,7 @@ func withJWTTodoAuth(handlerFunc http.HandlerFunc, s *Storer) http.HandlerFunc {
 		}
 		exp, err := claims.GetExpirationTime()
 		if err != nil || exp == nil {
-			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+			writeJSON(w, http.StatusForbidden, apiErrorV2{
 				Type:   errTypeForbidden,
 				Title:  "Access Denied",
 				Status: http.StatusForbidden,
@@ -118,7 +118,7 @@ func withJWTTodoAuth(handlerFunc http.HandlerFunc, s *Storer) http.HandlerFunc {
 		}
 
 		if isExpired(exp.Time) {
-			WriteJSON(w, http.StatusForbidden, apiErrorV2{
+			writeJSON(w, http.StatusForbidden, apiErrorV2{
 				Type:   errTypeForbidden,
 				Title:  "Access Denied",
 				Status: http.StatusForbidden,
@@ -135,15 +135,15 @@ func withJWTTodoAuth(handlerFunc http.HandlerFunc, s *Storer) http.HandlerFunc {
 // |++++++++++++++++++++++++++++++++++++++|
 
 type application struct {
-	logger  *slog.Logger
-	storer  *Storer
-	handler *http.ServeMux
+	logger     *slog.Logger
+	repository *repository
+	handler    *http.ServeMux
 }
 
-func NewApplication(logger *slog.Logger, storer *Storer) *application {
+func newApplication(logger *slog.Logger, repository *repository) *application {
 	app := &application{
-		logger: logger,
-		storer: storer,
+		logger:     logger,
+		repository: repository,
 	}
 	app.SetupRoutes()
 	return app
@@ -157,16 +157,16 @@ func (a *application) SetupRoutes() {
 
 	// Todo endpoints: crud on the todo list entity
 	mux.HandleFunc("POST /v1/todos", makeHTTPHandleFunc(a.handleCreateTodo))
-	mux.HandleFunc("GET /v1/todos", withJWTTodoAuth(makeHTTPHandleFunc(a.handleGetTodos), a.storer))
-	mux.HandleFunc("GET /v1/todos/{id}", withJWTTodoAuth(makeHTTPHandleFunc(a.handleGetTodo), a.storer))
-	mux.HandleFunc("PUT /v1/todos/{id}", withJWTTodoAuth(makeHTTPHandleFunc(a.handleUpdateTodo), a.storer))
-	mux.HandleFunc("DELETE /v1/todos/{id}", withJWTTodoAuth(makeHTTPHandleFunc(a.handleDeleteTodo), a.storer))
+	mux.HandleFunc("GET /v1/todos", withJWTTodoAuth(makeHTTPHandleFunc(a.handleGetTodos), a.repository))
+	mux.HandleFunc("GET /v1/todos/{id}", withJWTTodoAuth(makeHTTPHandleFunc(a.handleGetTodo), a.repository))
+	mux.HandleFunc("PUT /v1/todos/{id}", withJWTTodoAuth(makeHTTPHandleFunc(a.handleUpdateTodo), a.repository))
+	mux.HandleFunc("DELETE /v1/todos/{id}", withJWTTodoAuth(makeHTTPHandleFunc(a.handleDeleteTodo), a.repository))
 
 	// Todo item endpoints: crud on todo list items
-	mux.HandleFunc("GET /v1/todos/{id}/items", withJWTTodoAuth(makeHTTPHandleFunc(a.handleGetTodoItems), a.storer))
-	mux.HandleFunc("POST /v1/todos/{id}/items", withJWTTodoAuth(makeHTTPHandleFunc(a.handleAddTodoItem), a.storer))
-	mux.HandleFunc("PUT /v1/todos/{id}/items/{itemNo}", withJWTTodoAuth(makeHTTPHandleFunc(a.handleEditTodoItem), a.storer))
-	mux.HandleFunc("DELETE /v1/todos/{id}/items/{itemNo}", withJWTTodoAuth(makeHTTPHandleFunc(a.handleDeleteTodoItem), a.storer))
+	mux.HandleFunc("GET /v1/todos/{id}/items", withJWTTodoAuth(makeHTTPHandleFunc(a.handleGetTodoItems), a.repository))
+	mux.HandleFunc("POST /v1/todos/{id}/items", withJWTTodoAuth(makeHTTPHandleFunc(a.handleAddTodoItem), a.repository))
+	mux.HandleFunc("PUT /v1/todos/{id}/items/{itemNo}", withJWTTodoAuth(makeHTTPHandleFunc(a.handleEditTodoItem), a.repository))
+	mux.HandleFunc("DELETE /v1/todos/{id}/items/{itemNo}", withJWTTodoAuth(makeHTTPHandleFunc(a.handleDeleteTodoItem), a.repository))
 
 	a.handler = mux
 }
@@ -175,7 +175,7 @@ func (a *application) handleCreateUser(w http.ResponseWriter, r *http.Request) *
 	ctx := r.Context()
 
 	var user User
-	if err := ReadJSON(w, r, &user); err != nil {
+	if err := readJSON(w, r, &user); err != nil {
 		return badRequestResponseV2("invalid data", err)
 	}
 
@@ -186,12 +186,12 @@ func (a *application) handleCreateUser(w http.ResponseWriter, r *http.Request) *
 		return badRequestResponseV2("invalid data", err)
 	}
 
-	registeredUser, err := a.storer.CreateUser(ctx, user)
+	registeredUser, err := a.repository.CreateUser(ctx, user)
 	if err != nil {
 		return internalErrorResponseV2("failed to create user", err)
 	}
 
-	if err := WriteJSON(w, http.StatusOK, registeredUser); err != nil {
+	if err := writeJSON(w, http.StatusOK, registeredUser); err != nil {
 		return internalErrorResponseV2("an error occured", err)
 	}
 
@@ -202,7 +202,7 @@ func (a *application) handleLoginUser(w http.ResponseWriter, r *http.Request) *a
 	ctx := r.Context()
 
 	var user User
-	if err := ReadJSON(w, r, &user); err != nil {
+	if err := readJSON(w, r, &user); err != nil {
 		return badRequestResponseV2("invalid data", err)
 	}
 
@@ -212,7 +212,7 @@ func (a *application) handleLoginUser(w http.ResponseWriter, r *http.Request) *a
 		return badRequestResponseV2("invalid data", err)
 	}
 
-	registeredUser, err := a.storer.GetUserByEmail(ctx, user.Email)
+	registeredUser, err := a.repository.GetUserByEmail(ctx, user.Email)
 	if err != nil {
 		return badRequestResponseV2("invalid data", err)
 	}
@@ -226,7 +226,7 @@ func (a *application) handleLoginUser(w http.ResponseWriter, r *http.Request) *a
 		return internalErrorResponseV2("failed to log in user", err)
 	}
 
-	SuccessfulLoginResponse(w, token)
+	successfulLoginResponse(w, token)
 	return nil
 }
 
@@ -248,7 +248,7 @@ func (a *application) handleGetTodos(w http.ResponseWriter, r *http.Request) *ap
 		return badRequestResponseV2("invalid data", err)
 	}
 
-	resp, err := a.storer.GetTodosByUserID(ctx, userID, limit, page)
+	resp, err := a.repository.GetTodosByUserID(ctx, userID, limit, page)
 	if err != nil {
 		switch err {
 		case errNotFound:
@@ -258,7 +258,7 @@ func (a *application) handleGetTodos(w http.ResponseWriter, r *http.Request) *ap
 		}
 	}
 
-	if err := WriteJSON(w, http.StatusOK, resp); err != nil {
+	if err := writeJSON(w, http.StatusOK, resp); err != nil {
 		return internalErrorResponseV2("an error occured", err)
 	}
 
@@ -273,7 +273,7 @@ func (a *application) handleGetTodo(w http.ResponseWriter, r *http.Request) *api
 		return badRequestResponseV2("invalid todo list id", err)
 	}
 
-	resp, err := a.storer.GetTodo(ctx, id)
+	resp, err := a.repository.GetTodo(ctx, id)
 	if err != nil {
 		switch err {
 		case errNotFound:
@@ -283,7 +283,7 @@ func (a *application) handleGetTodo(w http.ResponseWriter, r *http.Request) *api
 		}
 	}
 
-	if err := WriteJSON(w, http.StatusOK, resp); err != nil {
+	if err := writeJSON(w, http.StatusOK, resp); err != nil {
 		return internalErrorResponseV2("an error occured", err)
 	}
 
@@ -295,16 +295,16 @@ func (a *application) handleCreateTodo(w http.ResponseWriter, r *http.Request) *
 
 	var todo CreateTodo
 
-	if err := ReadJSON(w, r, &todo); err != nil {
+	if err := readJSON(w, r, &todo); err != nil {
 		return badRequestResponseV2("invalid data", err)
 	}
 
-	out, err := a.storer.CreateTodo(ctx, todo)
+	out, err := a.repository.CreateTodo(ctx, todo)
 	if err != nil {
 		return internalErrorResponseV2("failed to create todo list", err)
 	}
 
-	if err := WriteJSON(w, http.StatusOK, out); err != nil {
+	if err := writeJSON(w, http.StatusOK, out); err != nil {
 		return internalErrorResponseV2("an error occured", err)
 	}
 
@@ -321,11 +321,11 @@ func (a *application) handleUpdateTodo(w http.ResponseWriter, r *http.Request) *
 		return badRequestResponseV2("invalid todo list id", err)
 	}
 
-	if err := ReadJSON(w, r, &update); err != nil {
+	if err := readJSON(w, r, &update); err != nil {
 		return badRequestResponseV2("invalid data", err)
 	}
 
-	err = a.storer.UpdateTodo(ctx, id, update)
+	err = a.repository.UpdateTodo(ctx, id, update)
 	if err != nil {
 		switch err {
 		case errNotFound:
@@ -335,7 +335,7 @@ func (a *application) handleUpdateTodo(w http.ResponseWriter, r *http.Request) *
 		}
 	}
 
-	if err := WriteJSON(w, http.StatusOK, nil); err != nil {
+	if err := writeJSON(w, http.StatusOK, nil); err != nil {
 		return internalErrorResponseV2("an error occured", err)
 	}
 
@@ -350,7 +350,7 @@ func (a *application) handleDeleteTodo(w http.ResponseWriter, r *http.Request) *
 		return badRequestResponseV2("invalid todo list id", err)
 	}
 
-	if err := a.storer.DeleteTodo(ctx, id); err != nil {
+	if err := a.repository.DeleteTodo(ctx, id); err != nil {
 		switch err {
 		case errNotFound:
 			return notFoundResponseV2()
@@ -359,7 +359,7 @@ func (a *application) handleDeleteTodo(w http.ResponseWriter, r *http.Request) *
 		}
 	}
 
-	if err := WriteJSON(w, http.StatusOK, nil); err != nil {
+	if err := writeJSON(w, http.StatusOK, nil); err != nil {
 		return internalErrorResponseV2("an error occured", err)
 	}
 
@@ -374,7 +374,7 @@ func (a *application) handleGetTodoItems(w http.ResponseWriter, r *http.Request)
 		return badRequestResponseV2("invalid todo list id", err)
 	}
 
-	items, err := a.storer.GetTodoItems(ctx, todoID)
+	items, err := a.repository.GetTodoItems(ctx, todoID)
 	if err != nil {
 		switch err {
 		case errNotFound:
@@ -384,7 +384,7 @@ func (a *application) handleGetTodoItems(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	if err := WriteJSON(w, http.StatusOK, items); err != nil {
+	if err := writeJSON(w, http.StatusOK, items); err != nil {
 		return internalErrorResponseV2("an error occured", err)
 	}
 
@@ -396,11 +396,11 @@ func (a *application) handleAddTodoItem(w http.ResponseWriter, r *http.Request) 
 
 	var item Item
 
-	if err := ReadJSON(w, r, &item); err != nil {
+	if err := readJSON(w, r, &item); err != nil {
 		return badRequestResponseV2("invalid data", err)
 	}
 
-	if err := a.storer.AddTodoItem(ctx, item); err != nil {
+	if err := a.repository.AddTodoItem(ctx, item); err != nil {
 		switch err {
 		case errNotFound:
 			return notFoundResponseV2()
@@ -417,11 +417,11 @@ func (a *application) handleEditTodoItem(w http.ResponseWriter, r *http.Request)
 
 	var item Item
 
-	if err := ReadJSON(w, r, &item); err != nil {
+	if err := readJSON(w, r, &item); err != nil {
 		return badRequestResponseV2("invalid data", err)
 	}
 
-	if err := a.storer.UpdateTodoItem(ctx, item); err != nil {
+	if err := a.repository.UpdateTodoItem(ctx, item); err != nil {
 		switch err {
 		case errNotFound:
 			return notFoundResponseV2()
@@ -441,7 +441,7 @@ func (a *application) handleDeleteTodoItem(w http.ResponseWriter, r *http.Reques
 		return badRequestResponseV2("invalid item number", err)
 	}
 
-	if err := a.storer.DeleteTodoItem(ctx, id); err != nil {
+	if err := a.repository.DeleteTodoItem(ctx, id); err != nil {
 		switch err {
 		case errNotFound:
 			return notFoundResponseV2()
@@ -450,7 +450,7 @@ func (a *application) handleDeleteTodoItem(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	if err := WriteJSON(w, http.StatusOK, nil); err != nil {
+	if err := writeJSON(w, http.StatusOK, nil); err != nil {
 		return internalErrorResponseV2("an error occured", err)
 	}
 
