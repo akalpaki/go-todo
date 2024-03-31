@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 // |++++++++++++++++++++++++++++++++++++++|
@@ -34,99 +33,6 @@ func makeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
 		}
 		w.WriteHeader(status)
 		w.Write(body)
-	}
-}
-
-// withJWTTodoAuth is authentication middleware for routes handling the todo resource.
-func withJWTTodoAuth(handlerFunc http.HandlerFunc, repo *repository) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		tokenStr := r.Header.Get("x-jwt-token")
-		if tokenStr == "" {
-			writeJSON(w, http.StatusForbidden, apiErrorV2{
-				Type:   errTypeForbidden,
-				Title:  "Access Denied",
-				Status: http.StatusForbidden,
-			})
-			return
-		}
-
-		token, err := validateJWT(tokenStr)
-		if err != nil {
-			writeJSON(w, http.StatusForbidden, apiErrorV2{
-				Type:   errTypeForbidden,
-				Title:  "Access Denied",
-				Status: http.StatusForbidden,
-			})
-			return
-		}
-
-		todoID, err := strconv.Atoi(r.PathValue("id"))
-		if err != nil {
-			writeJSON(w, http.StatusForbidden, apiErrorV2{
-				Type:   errTypeForbidden,
-				Title:  "Access Denied",
-				Status: http.StatusForbidden,
-			})
-			return
-		}
-
-		todo, err := repo.GetTodoMetadataByID(todoID)
-		if err != nil {
-			writeJSON(w, http.StatusForbidden, apiErrorV2{
-				Type:   errTypeForbidden,
-				Title:  "Access Denied",
-				Status: http.StatusForbidden,
-			})
-			return
-		}
-
-		claims := token.Claims.(jwt.MapClaims)
-		if todo.UserID != int(claims["sub"].(float64)) {
-			writeJSON(w, http.StatusForbidden, apiErrorV2{
-				Type:   errTypeForbidden,
-				Title:  "Access Denied",
-				Status: http.StatusForbidden,
-			})
-			return
-		}
-
-		if claims["iss"] != "todo" {
-			writeJSON(w, http.StatusForbidden, apiErrorV2{
-				Type:   errTypeForbidden,
-				Title:  "Access Denied",
-				Status: http.StatusForbidden,
-			})
-			return
-		}
-
-		if claims["aud"] != "todo" {
-			writeJSON(w, http.StatusForbidden, apiErrorV2{
-				Type:   errTypeForbidden,
-				Title:  "Access Denied",
-				Status: http.StatusForbidden,
-			})
-			return
-		}
-		exp, err := claims.GetExpirationTime()
-		if err != nil || exp == nil {
-			writeJSON(w, http.StatusForbidden, apiErrorV2{
-				Type:   errTypeForbidden,
-				Title:  "Access Denied",
-				Status: http.StatusForbidden,
-			})
-			return
-		}
-
-		if isExpired(exp.Time) {
-			writeJSON(w, http.StatusForbidden, apiErrorV2{
-				Type:   errTypeForbidden,
-				Title:  "Access Denied",
-				Status: http.StatusForbidden,
-			})
-			return
-		}
-
-		handlerFunc(w, r)
 	}
 }
 

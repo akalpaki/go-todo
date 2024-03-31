@@ -1,75 +1,112 @@
 package main
 
-// import (
-// 	"bytes"
-// 	"encoding/json"
-// 	"io"
-// 	"log"
-// 	"net/http"
-// 	"net/http/httptest"
-// 	"testing"
-// )
+import (
+	"bytes"
+	"database/sql"
+	"encoding/json"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"testing"
 
-// func setupTestServer(t *testing.T) *application {
-// 	t.Helper()
+	_ "github.com/mattn/go-sqlite3"
+)
 
-// 	cfg := LoadTestConfig()
-// 	store := NewStorer(cfg.DB)
-// 	runMigration(cfg.DB)
+const REALLY_LONG_PASSWORD = "abcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabc"
 
-// 	return NewApplication(cfg, store)
-// }
+func TestCreateUser(t *testing.T) {
+	type testCase struct {
+		name         string
+		data         User
+		expected     User
+		expectedCode int
+		expectedErr  *apiErrorV2
+	}
 
-// func TestHandleCreateUser(t *testing.T) {
-// 	type testCase struct {
-// 		name         string
-// 		data         User
-// 		expected     string
-// 		expectedCode int
-// 	}
+	tc := []testCase{
+		{
+			name:         "happy path",
+			data:         User{Email: "test@test.com", Password: "test123"},
+			expected:     User{ID: 2, Email: "test@test.com"},
+			expectedCode: http.StatusOK,
+		},
+		{
+			name:         "invalid email",
+			data:         User{Email: "nonsense", Password: "test123"},
+			expectedErr:  &apiErrorV2{Type: errTypeBadRequest, Status: http.StatusBadRequest, Title: errTitleBadRequest, Detail: "invalid data"},
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "empty password",
+			data:         User{Email: "test@test.com"},
+			expectedErr:  &apiErrorV2{Type: errTypeBadRequest, Status: http.StatusBadRequest, Title: errTitleBadRequest, Detail: "invalid data"},
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "password too long",
+			data:         User{Email: "test@test.com", Password: REALLY_LONG_PASSWORD},
+			expectedErr:  &apiErrorV2{Type: errTypeInternalServerError, Status: http.StatusInternalServerError, Title: errTitleInternalServerError, Detail: "failed to create user"},
+			expectedCode: http.StatusInternalServerError,
+		},
+	}
 
-// 	cases := []testCase{
-// 		{
-// 			name:         "happy path",
-// 			data:         User{Email: "test@test.com", Password: "test123"},
-// 			expected:     `{"user_id": 2, "email": "test2@test.com, "password": "test123"}`,
-// 			expectedCode: http.StatusOK,
-// 		},
-// 		{
-// 			name:         "invalid email",
-// 			data:         User{Email: "bad_email", Password: "test123"},
-// 			expected:     `{"type": "error:bad_request", "status": 400, "title": "invalid request data", "detail": "invalid data"}`,
-// 			expectedCode: http.StatusBadRequest,
-// 		},
-// 	}
+	testApp, tempF := setupApp(t)
 
-// 	for _, c := range cases {
-// 		srv := setupTestServer(t)
-// 		SeedUsersToTestDB(srv.storer.DB)
+	srv := httptest.NewServer(testApp.handler)
+	defer srv.Close()
 
-// 		testData, err := json.Marshal(c.data)
-// 		if err != nil {
-// 			log.Println(err)
-// 			t.FailNow()
-// 		}
-// 		rr := httptest.NewRecorder()
-// 		req := httptest.NewRequest(http.MethodPost, "localhost:4555/v1/user", bytes.NewReader(testData))
-// 		srv.handleCreateUser(rr, req)
+	for _, tt := range tc {
+		client := http.Client{}
+		reqBody, err := json.Marshal(tt.data)
+		if err != nil {
+			t.Fatalf("test case %s failed, error=%s", tt.name, err.Error())
+		}
+		req, err := http.NewRequest(http.MethodPost, "localhost:8000/v1/user", bytes.NewReader(reqBody))
+		if err != nil {
+			t.Fatalf("test case %s failed, error=%s", tt.name, err.Error())
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatalf("test case %s failed, error=%s", tt.name, err.Error())
+		}
+		if resp.StatusCode != tt.expectedCode {
+			t.Fatalf("test case %s failed, expected=%d, result=%d", tt.name, tt.expectedCode, resp.StatusCode)
+		}
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatalf("test case %s failed, error=%s", tt.name, err.Error())
+		}
+		var resUser User
+		if err := json.Unmarshal(respBody, &resUser); err != nil {
+			t.Fatalf("test case %s failed, error=%s", tt.name, err.Error())
+		}
 
-// 		res := rr.Result()
-// 		if res.StatusCode != c.expectedCode {
-// 			t.Fatalf("expected=%d, result=%d", c.expectedCode, res.StatusCode)
-// 		}
-// 		body := res.Body
-// 		defer body.Close()
-// 		data, err := io.ReadAll(body)
-// 		if err != nil {
-// 			log.Println(err)
-// 			t.FailNow()
-// 		}
-// 		// test happy path, verify registered user is what you expect
-// 		if c.expectedCode == http.StatusOK {
+	}
 
-// 		}
-// 	}
-// }
+	t.Cleanup(func() {
+		tempF.Close()
+		os.Remove(tempF.Name())
+	})
+}
+
+func setupApp(t *testing.T) (*application, *os.File) {
+	t.Helper()
+	tempFile, err := os.CreateTemp("", "todo_test.db")
+	if err != nil {
+		t.Fatalf("test setup failed, error=%s", err.Error())
+	}
+	conn, err := sql.Open("sqlite3", "file:todo_test.db")
+	if err != nil {
+		t.Fatalf("test setup failed, error=%s", err.Error())
+	}
+	if err := conn.Ping(); err != nil {
+		t.Fatalf("test setup failed, error=%s", err.Error())
+	}
+	testRepo := newRepository(conn)
+	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{AddSource: true, Level: slog.LevelDebug}))
+	app := newApplication(logger, testRepo)
+	app.SetupRoutes()
+	return app, tempFile
+}
