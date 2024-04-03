@@ -1,13 +1,8 @@
 package main
 
 import (
-	"bytes"
-	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
-	"io"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -64,32 +59,19 @@ func TestCreateUser(t *testing.T) {
 	})
 
 	for _, tt := range tc {
-		client := http.Client{}
-		reqBody, err := json.Marshal(tt.data)
-		if err != nil {
-			t.Fatalf("test case %s failed, error=%s", tt.name, err.Error())
-		}
 		url := fmt.Sprintf("%s/%s", srv.URL, "v1/user")
-		req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(reqBody))
+		resp, err := makeTestRequest(t, tt.name, url, http.MethodPost, tt.data)
 		if err != nil {
 			t.Fatalf("test case %s failed, error=%s", tt.name, err.Error())
 		}
-		req.Header.Set("Content-Type", "application/json")
-		resp, err := client.Do(req)
-		if err != nil {
-			t.Fatalf("test case %s failed, error=%s", tt.name, err.Error())
-		}
-		if resp.StatusCode != tt.expectedCode {
-			t.Fatalf("test case %s failed, expected=%d, result=%d", tt.name, tt.expectedCode, resp.StatusCode)
-		}
-		respBody, err := io.ReadAll(resp.Body)
+		body, err := readTestResponse(t, tt.name, tt.expectedCode, resp, err)
 		if err != nil {
 			t.Fatalf("test case %s failed, error=%s", tt.name, err.Error())
 		}
 		switch {
 		case tt.expectedErr != apiErrorV2{}:
 			var resErr apiErrorV2
-			if err := json.Unmarshal(respBody, &resErr); err != nil {
+			if err := json.Unmarshal(body, &resErr); err != nil {
 				t.Fatalf("test case %s failed, error=%s", tt.name, err.Error())
 			}
 			if resErr != tt.expectedErr {
@@ -97,7 +79,7 @@ func TestCreateUser(t *testing.T) {
 			}
 		default:
 			var resUser User
-			if err := json.Unmarshal(respBody, &resUser); err != nil {
+			if err := json.Unmarshal(body, &resUser); err != nil {
 				t.Fatalf("test case %s failed, error=%s", tt.name, err.Error())
 			}
 			if resUser.Email != tt.expected.Email {
@@ -175,32 +157,20 @@ func TestLogin(t *testing.T) {
 	})
 
 	for _, tt := range tc {
-		client := http.Client{}
-		reqBody, err := json.Marshal(tt.data)
-		if err != nil {
-			t.Fatalf("test case %s failed, error=%s", tt.name, err.Error())
-		}
 		url := fmt.Sprintf("%s/%s", srv.URL, "v1/user/login")
-		req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(reqBody))
+		resp, err := makeTestRequest(t, tt.name, url, http.MethodPost, tt.data)
 		if err != nil {
 			t.Fatalf("test case %s failed, error=%s", tt.name, err.Error())
 		}
-		req.Header.Set("Content-Type", "application/json")
-		resp, err := client.Do(req)
-		if err != nil {
-			t.Fatalf("test case %s failed, error=%s", tt.name, err.Error())
-		}
-		if resp.StatusCode != tt.expectedCode {
-			t.Fatalf("test case %s failed, expected=%d, result=%d", tt.name, tt.expectedCode, resp.StatusCode)
-		}
-		respBody, err := io.ReadAll(resp.Body)
+
+		body, err := readTestResponse(t, tt.name, tt.expectedCode, resp, err)
 		if err != nil {
 			t.Fatalf("test case %s failed, error=%s", tt.name, err.Error())
 		}
 		switch {
 		case tt.expectedErr != apiErrorV2{}:
 			var resErr apiErrorV2
-			if err := json.Unmarshal(respBody, &resErr); err != nil {
+			if err := json.Unmarshal(body, &resErr); err != nil {
 				t.Fatalf("test case %s failed, error=%s", tt.name, err.Error())
 			}
 			if resErr != tt.expectedErr {
@@ -214,26 +184,4 @@ func TestLogin(t *testing.T) {
 		}
 
 	}
-}
-
-func setupApp(t *testing.T) (*application, *os.File) {
-	t.Helper()
-	tempFile, err := os.CreateTemp("", "todo_test.db")
-	if err != nil {
-		t.Fatalf("test setup failed, error=%s", err.Error())
-	}
-	conn, err := sql.Open("sqlite3", "file:todo_test.db")
-	if err != nil {
-		t.Fatalf("test setup failed, error=%s", err.Error())
-	}
-	if err := conn.Ping(); err != nil {
-		t.Fatalf("test setup failed, error=%s", err.Error())
-	}
-	runMigration(conn)
-	testRepo := newRepository(conn)
-	testRepo.CreateUser(context.Background(), User{Email: "first@user.com", Password: "pass"})
-	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{AddSource: true, Level: slog.LevelDebug}))
-	app := newApplication(logger, testRepo)
-	app.SetupRoutes()
-	return app, tempFile
 }
