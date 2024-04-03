@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
@@ -63,11 +62,4 @@ func readJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 	}
 
 	return nil
-}
-
-func seedUsersToTestDB(db *sql.DB) {
-	_, err := db.Exec("insert into users (email, password) values ('test@test.com', 'pas123')")
-	if err != nil {
-		panic("failed to seed test user to test db")
-	}
 }

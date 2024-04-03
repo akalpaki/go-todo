@@ -12,7 +12,7 @@ import (
 
 func createAccessToken(userID int) (string, error) {
 	secret := os.Getenv("JWT_SECRET_KEY")
-	token := jwt.New(jwt.SigningMethodEdDSA)
+	token := jwt.New(jwt.SigningMethodHS256)
 	claims := jwt.MapClaims{
 		"iss": "todo",
 		"sub": userID,
@@ -21,7 +21,7 @@ func createAccessToken(userID int) (string, error) {
 		"iat": time.Now(),
 	}
 	token.Claims = claims
-	tokenStr, err := token.SignedString(secret)
+	tokenStr, err := token.SignedString([]byte(secret))
 	if err != nil {
 		return "", err
 	}

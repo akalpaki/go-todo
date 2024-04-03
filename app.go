@@ -124,7 +124,7 @@ func (a *application) handleLoginUser(w http.ResponseWriter, r *http.Request) *a
 	}
 
 	if !checkPasswordHash(user.Password, registeredUser.Password) {
-		return badRequestResponseV2("wrong password", err)
+		return badRequestResponseV2("invalid data", err)
 	}
 
 	token, err := createAccessToken(user.ID)

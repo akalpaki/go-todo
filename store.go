@@ -48,7 +48,7 @@ func (r *repository) GetUserByEmail(ctx context.Context, email string) (User, er
 	var registeredUser User
 
 	res := r.DB.QueryRowContext(ctx, "select * from user where email = ?", email)
-	if err := res.Scan(&registeredUser); err != nil {
+	if err := res.Scan(&registeredUser.ID, &registeredUser.Email, &registeredUser.Password); err != nil {
 		return User{}, err
 	}
 	return registeredUser, nil
