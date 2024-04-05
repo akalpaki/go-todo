@@ -65,3 +65,11 @@ func readTestResponse(t *testing.T, name string, expectedCode int, resp *http.Re
 
 	return io.ReadAll(resp.Body)
 }
+
+func makeTestToken(t *testing.T, name string) string {
+	token, err := createAccessToken(1)
+	if err != nil {
+		t.Fatalf("test case %s failed, error=%s", name, err.Error())
+	}
+	return token
+}

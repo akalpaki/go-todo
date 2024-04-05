@@ -37,7 +37,7 @@ func makeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
 }
 
 // |++++++++++++++++++++++++++++++++++++++|
-// |          Server and Handlers         |
+// |       Application and Handlers       |
 // |++++++++++++++++++++++++++++++++++++++|
 
 type application struct {
@@ -58,8 +58,8 @@ func newApplication(logger *slog.Logger, repository *repository) *application {
 func (a *application) SetupRoutes() {
 	mux := http.NewServeMux()
 	// User endpoints: crud and login of users
-	mux.HandleFunc("POST /v1/user", makeHTTPHandleFunc(a.handleCreateUser))
-	mux.HandleFunc("POST /v1/user/login", makeHTTPHandleFunc(a.handleLoginUser))
+	mux.HandleFunc("POST /v1/users", makeHTTPHandleFunc(a.handleCreateUser))
+	mux.HandleFunc("POST /v1/users/login", makeHTTPHandleFunc(a.handleLoginUser))
 
 	// Todo endpoints: crud on the todo list entity
 	mux.HandleFunc("POST /v1/todos", makeHTTPHandleFunc(a.handleCreateTodo))
@@ -205,6 +205,12 @@ func (a *application) handleCreateTodo(w http.ResponseWriter, r *http.Request) *
 		return badRequestResponseV2("invalid data", err)
 	}
 
+	validate := validator.New()
+	err := validate.Struct(todo)
+	if err != nil {
+		return badRequestResponseV2("invalid data", err)
+	}
+
 	out, err := a.repository.CreateTodo(ctx, todo)
 	if err != nil {
 		return internalErrorResponseV2("failed to create todo list", err)
@@ -225,6 +231,12 @@ func (a *application) handleUpdateTodo(w http.ResponseWriter, r *http.Request) *
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		return badRequestResponseV2("invalid todo list id", err)
+	}
+
+	validate := validator.New()
+	err = validate.Struct(update)
+	if err != nil {
+		return badRequestResponseV2("invalid data", err)
 	}
 
 	if err := readJSON(w, r, &update); err != nil {

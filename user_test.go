@@ -59,11 +59,8 @@ func TestCreateUser(t *testing.T) {
 	})
 
 	for _, tt := range tc {
-		url := fmt.Sprintf("%s/%s", srv.URL, "v1/user")
+		url := fmt.Sprintf("%s/%s", srv.URL, "v1/users")
 		resp, err := makeTestRequest(t, tt.name, url, http.MethodPost, tt.data)
-		if err != nil {
-			t.Fatalf("test case %s failed, error=%s", tt.name, err.Error())
-		}
 		body, err := readTestResponse(t, tt.name, tt.expectedCode, resp, err)
 		if err != nil {
 			t.Fatalf("test case %s failed, error=%s", tt.name, err.Error())
@@ -157,7 +154,7 @@ func TestLogin(t *testing.T) {
 	})
 
 	for _, tt := range tc {
-		url := fmt.Sprintf("%s/%s", srv.URL, "v1/user/login")
+		url := fmt.Sprintf("%s/%s", srv.URL, "v1/users/login")
 		resp, err := makeTestRequest(t, tt.name, url, http.MethodPost, tt.data)
 		if err != nil {
 			t.Fatalf("test case %s failed, error=%s", tt.name, err.Error())

@@ -17,14 +17,16 @@ type Todo struct {
 
 // CreateTodo is the model that represents the needed information to create a new todo list.
 type CreateTodo struct {
-	Name  string `json:"name"`
-	Items []Item `json:"items"`
+	UserID int    `json:"user_id" validate:"required,number"`
+	Name   string `json:"name"`
+	Items  []Item `json:"items"`
 }
 
 // UpdateTodo is the model that represents any potential information that might be updated on a
 // todo list. The fields are pointers as to allow for nil values, denoting them as optional.
 type UpdateTodo struct {
-	Name *string `json:"name"`
+	UserID int     `json:"user_id" validate:"required,number"`
+	Name   *string `json:"name"`
 }
 
 // Item is the model for the value object representing a single item in a todo list.
