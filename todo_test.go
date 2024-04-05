@@ -11,12 +11,12 @@ import (
 
 func TestCreateTodo(t *testing.T) {
 	type testCase struct {
-		name           string
-		data           CreateTodo
-		token          string
-		expectedStatus int
-		expected       Todo
-		expectedErr    apiErrorV2
+		name         string
+		data         CreateTodo
+		token        string
+		expectedCode int
+		expected     Todo
+		expectedErr  apiErrorV2
 	}
 
 	tc := []testCase{
@@ -33,8 +33,8 @@ func TestCreateTodo(t *testing.T) {
 					},
 				},
 			},
-			token:          makeTestToken(t, "happy path"),
-			expectedStatus: http.StatusOK,
+			token:        makeTestToken(t, "happy path"),
+			expectedCode: http.StatusOK,
 		},
 		{
 			name: "no user specified",
@@ -48,15 +48,15 @@ func TestCreateTodo(t *testing.T) {
 					},
 				},
 			},
-			token:          makeTestToken(t, "no user specified"),
-			expectedStatus: 400,
-			expectedErr:    apiErrorV2{Type: errTypeBadRequest, Status: http.StatusBadRequest, Title: errTitleBadRequest, Detail: "invalid data"},
+			token:        makeTestToken(t, "no user specified"),
+			expectedCode: 400,
+			expectedErr:  apiErrorV2{Type: errTypeBadRequest, Status: http.StatusBadRequest, Title: errTitleBadRequest, Detail: "invalid data"},
 		},
 		{
-			name:           "no data",
-			token:          makeTestToken(t, "no test token"),
-			expectedStatus: 400,
-			expectedErr:    apiErrorV2{Type: errTypeBadRequest, Status: http.StatusBadRequest, Title: errTitleBadRequest, Detail: "invalid data"},
+			name:         "no data",
+			token:        makeTestToken(t, "no test token"),
+			expectedCode: 400,
+			expectedErr:  apiErrorV2{Type: errTypeBadRequest, Status: http.StatusBadRequest, Title: errTitleBadRequest, Detail: "invalid data"},
 		},
 		{
 			name: "no token",
@@ -71,7 +71,7 @@ func TestCreateTodo(t *testing.T) {
 					},
 				},
 			},
-			expectedStatus: http.StatusUnauthorized,
+			expectedCode: http.StatusUnauthorized,
 			expectedErr: apiErrorV2{
 				Type:   errTypeUnauthorized,
 				Title:  "Missing or invalid credentials",
@@ -91,7 +91,7 @@ func TestCreateTodo(t *testing.T) {
 	for _, tt := range tc {
 		url := fmt.Sprintf("%s/%s", srv.URL, "v1/todos")
 		resp, err := makeTestRequest(t, tt.name, url, http.MethodPost, tt.data)
-		body, err := readTestResponse(t, tt.name, tt.expectedStatus, resp, err)
+		body, err := readTestResponse(t, tt.name, tt.expectedCode, resp, err)
 		if err != nil {
 			t.Fatalf("test case %s fail, error=%s", tt.name, err.Error())
 		}
@@ -110,5 +110,14 @@ func TestCreateTodo(t *testing.T) {
 				t.Fatalf("test case %s failed, expected=%v, result=%v", tt.name, tt.expected, resTodo)
 			}
 		}
+	}
+}
+
+func TestGetTodo(t *testing.T) {
+	type testCase struct {
+		name         string
+		expectedCode int
+		expected     []Todo
+		expectedErr  apiErrorV2
 	}
 }
