@@ -62,17 +62,17 @@ func (a *application) SetupRoutes() {
 	mux.HandleFunc("POST /v1/users/login", makeHTTPHandleFunc(a.handleLoginUser))
 
 	// Todo endpoints: crud on the todo list entity
-	mux.HandleFunc("POST /v1/todos", makeHTTPHandleFunc(a.handleCreateTodo))
-	mux.HandleFunc("GET /v1/todos", withJWTTodoAuth(makeHTTPHandleFunc(a.handleGetTodos), a.repository))
-	mux.HandleFunc("GET /v1/todos/{id}", withJWTTodoAuth(makeHTTPHandleFunc(a.handleGetTodo), a.repository))
-	mux.HandleFunc("PUT /v1/todos/{id}", withJWTTodoAuth(makeHTTPHandleFunc(a.handleUpdateTodo), a.repository))
-	mux.HandleFunc("DELETE /v1/todos/{id}", withJWTTodoAuth(makeHTTPHandleFunc(a.handleDeleteTodo), a.repository))
+	mux.HandleFunc("POST /v1/todos", Auth(makeHTTPHandleFunc(a.handleCreateTodo)))
+	mux.HandleFunc("GET /v1/todos", Auth(makeHTTPHandleFunc(a.handleGetTodos)))
+	mux.HandleFunc("GET /v1/todos/{id}", Auth(makeHTTPHandleFunc(a.handleGetTodo)))
+	mux.HandleFunc("PUT /v1/todos/{id}", Auth(makeHTTPHandleFunc(a.handleUpdateTodo)))
+	mux.HandleFunc("DELETE /v1/todos/{id}", Auth(makeHTTPHandleFunc(a.handleDeleteTodo)))
 
 	// Todo item endpoints: crud on todo list items
-	mux.HandleFunc("GET /v1/todos/{id}/items", withJWTTodoAuth(makeHTTPHandleFunc(a.handleGetTodoItems), a.repository))
-	mux.HandleFunc("POST /v1/todos/{id}/items", withJWTTodoAuth(makeHTTPHandleFunc(a.handleAddTodoItem), a.repository))
-	mux.HandleFunc("PUT /v1/todos/{id}/items/{itemNo}", withJWTTodoAuth(makeHTTPHandleFunc(a.handleEditTodoItem), a.repository))
-	mux.HandleFunc("DELETE /v1/todos/{id}/items/{itemNo}", withJWTTodoAuth(makeHTTPHandleFunc(a.handleDeleteTodoItem), a.repository))
+	mux.HandleFunc("GET /v1/todos/{id}/items", Auth(makeHTTPHandleFunc(a.handleGetTodoItems)))
+	mux.HandleFunc("POST /v1/todos/{id}/items", Auth(makeHTTPHandleFunc(a.handleAddTodoItem)))
+	mux.HandleFunc("PUT /v1/todos/{id}/items/{itemNo}", Auth(makeHTTPHandleFunc(a.handleEditTodoItem)))
+	mux.HandleFunc("DELETE /v1/todos/{id}/items/{itemNo}", Auth(makeHTTPHandleFunc(a.handleDeleteTodoItem)))
 
 	a.handler = mux
 }
