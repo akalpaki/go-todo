@@ -77,6 +77,8 @@ func (a *application) SetupRoutes() {
 	a.handler = mux
 }
 
+// User CRUD
+
 func (a *application) handleCreateUser(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
@@ -136,6 +138,8 @@ func (a *application) handleLoginUser(w http.ResponseWriter, r *http.Request) *a
 	return nil
 }
 
+// Todo CRUD
+
 func (a *application) handleGetTodos(w http.ResponseWriter, r *http.Request) *apiErrorV2 {
 	ctx := r.Context()
 
@@ -149,7 +153,7 @@ func (a *application) handleGetTodos(w http.ResponseWriter, r *http.Request) *ap
 		limit = DEFAULT_LIMIT
 	}
 
-	userID, err := strconv.Atoi(r.PathValue("id"))
+	userID, err := toInt(ctx.Value(USER_ID))
 	if err != nil {
 		return badRequestResponseV2("invalid data", err)
 	}
@@ -187,6 +191,15 @@ func (a *application) handleGetTodo(w http.ResponseWriter, r *http.Request) *api
 		default:
 			return internalErrorResponseV2("failed to retrieve todo list", err)
 		}
+	}
+
+	userID, err := toInt(ctx.Value(USER_ID))
+	if err != nil {
+		return badRequestResponseV2("invalid data", err)
+	}
+
+	if !userCanAccessTodo(userID, resp) {
+		return forbiddenResponseV2()
 	}
 
 	if err := writeJSON(w, http.StatusOK, resp); err != nil {

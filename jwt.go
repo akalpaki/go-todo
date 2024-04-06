@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -8,6 +9,10 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 )
+
+type contextKey string
+
+const USER_ID contextKey = "userID"
 
 func createAccessToken(userID int) (string, error) {
 	secret := os.Getenv("JWT_SECRET_KEY")
@@ -52,7 +57,7 @@ func defaultKeyFunc(t *jwt.Token) (any, error) {
 }
 
 // Auth is the middleware that validates jwt tokens.
-func Auth(handlerFunc http.HandlerFunc) http.HandlerFunc {
+func Auth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tokenStr := r.Header.Get("x-jwt-token")
 		token, err := jwt.Parse(tokenStr, defaultKeyFunc)
@@ -88,6 +93,10 @@ func Auth(handlerFunc http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		handlerFunc(w, r)
+		ctx := context.WithValue(r.Context(), USER_ID, claims["sub"])
+
+		r = r.WithContext(ctx)
+
+		next(w, r)
 	}
 }

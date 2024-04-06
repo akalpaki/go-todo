@@ -95,6 +95,7 @@ func forbiddenResponseV2() *apiErrorV2 {
 		Type:   errTypeForbidden,
 		Status: http.StatusForbidden,
 		Title:  errTitleForbidden,
+		Detail: "you do not have access to this resource",
 	}
 }
 

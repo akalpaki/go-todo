@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -17,6 +18,10 @@ var (
 	ErrUnknownFieldType   = errors.New("unknown field type")
 	ErrTooLarge           = errors.New("request body too large")
 	ErrTooManyJSONObjects = errors.New("too many json objects")
+)
+
+var (
+	errConversionFailed = errors.New("failed to convert value to integer")
 )
 
 // WriteJSON is a helper function which automatically writes JSON formated responses to the client.
@@ -62,4 +67,23 @@ func readJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 	}
 
 	return nil
+}
+
+// toInt is a helper function taking an interface{} value and returning an int representation of it, if possible.
+// toInt does not account for all possible conversions, like in spf13/cast lib.
+func toInt(val any) (int, error) {
+	switch num := val.(type) {
+	case int64:
+		return int(num), nil
+	case int32:
+		return int(num), nil
+	case float64:
+		return int(num), nil
+	case float32:
+		return int(num), nil
+	case string:
+		return strconv.Atoi(num)
+	default:
+		return 0, errConversionFailed
+	}
 }

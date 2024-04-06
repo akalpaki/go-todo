@@ -86,8 +86,8 @@ func (r *repository) GetTodosByUserID(ctx context.Context, userID int, limit, pa
 func (r *repository) GetTodo(ctx context.Context, id int) (Todo, error) {
 	var res Todo
 
-	tdRow := r.DB.QueryRowContext(ctx, "select id, name from todo where id = ?", id)
-	if err := tdRow.Scan(&res.ID, &res.Name); err != nil {
+	tdRow := r.DB.QueryRowContext(ctx, "select id, name, user_id from todo where id = ?", id)
+	if err := tdRow.Scan(&res.ID, &res.Name, &res.UserID); err != nil {
 		return Todo{}, err
 	}
 
@@ -120,8 +120,9 @@ func (r *repository) GetTodoMetadataByID(id int) (Todo, error) {
 // CreateTodo creates a new Todo list. If todo items are passed, they are added to the list.
 func (r *repository) CreateTodo(ctx context.Context, ct CreateTodo) (Todo, error) {
 	newTodo := Todo{
-		Name:  ct.Name,
-		Items: ct.Items,
+		Name:   ct.Name,
+		Items:  ct.Items,
+		UserID: ct.UserID,
 	}
 
 	addItem, prepErr := r.DB.Prepare("insert into todo_item(itemNo, content, done, todo_id) values (?,?,?,?)") // TODO: look into preparing these once somewhere, maybe sync once?
@@ -135,7 +136,7 @@ func (r *repository) CreateTodo(ctx context.Context, ct CreateTodo) (Todo, error
 	}
 	txAddItem := tx.Stmt(addItem)
 
-	res, err := tx.Exec("insert into todo (name) values (?)", newTodo.Name)
+	res, err := tx.Exec("insert into todo (name, user_id) values (?, ?)", newTodo.Name, newTodo.UserID)
 	if err != nil {
 		tx.Rollback()
 		return Todo{}, err

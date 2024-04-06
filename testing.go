@@ -70,10 +70,19 @@ func readTestResponse(t *testing.T, name string, expectedCode int, resp *http.Re
 	return io.ReadAll(resp.Body)
 }
 
-func makeTestToken(t *testing.T, name string) *string {
-	token, err := createAccessToken(1)
+func makeTestToken(t *testing.T, name string, userID int) *string {
+	token, err := createAccessToken(userID)
 	if err != nil {
 		t.Fatalf("test case %s failed, error=%s", name, err.Error())
 	}
 	return &token
+}
+
+func createTestUser(t *testing.T, db *sql.DB) {
+	sql := "insert into todo (name, user_id) values (?, ?) "
+
+	_, err := db.Exec(sql, "test", 1)
+	if err != nil {
+		t.Fatalf("failed to create test user, error=%s", err.Error())
+	}
 }
