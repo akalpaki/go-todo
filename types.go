@@ -17,7 +17,7 @@ type Todo struct {
 
 // CreateTodo is the model that represents the needed information to create a new todo list.
 type CreateTodo struct {
-	UserID int    `json:"user_id" validate:"required,number"`
+	UserID int    `json:"user_id" validate:"required"`
 	Name   string `json:"name"`
 	Items  []Item `json:"items"`
 }

@@ -37,7 +37,7 @@ func setupApp(t *testing.T) (*application, *os.File) {
 	return app, tempFile
 }
 
-func makeTestRequest(t *testing.T, name string, url string, method string, data any) (*http.Response, error) {
+func makeTestRequest(t *testing.T, name string, url string, method string, token *string, data any) (*http.Response, error) {
 	t.Helper()
 	client := http.Client{}
 
@@ -50,8 +50,12 @@ func makeTestRequest(t *testing.T, name string, url string, method string, data 
 		t.Fatalf("test case %s failed, error=%s", name, err.Error())
 	}
 	req.Header.Add("Content-Type", "application/json")
+	if token != nil {
+		req.Header.Add("x-jwt-token", *token)
+	}
 
-	return client.Do(req)
+	resp, err := client.Do(req)
+	return resp, err
 }
 
 func readTestResponse(t *testing.T, name string, expectedCode int, resp *http.Response, err error) ([]byte, error) {
@@ -66,10 +70,10 @@ func readTestResponse(t *testing.T, name string, expectedCode int, resp *http.Re
 	return io.ReadAll(resp.Body)
 }
 
-func makeTestToken(t *testing.T, name string) string {
+func makeTestToken(t *testing.T, name string) *string {
 	token, err := createAccessToken(1)
 	if err != nil {
 		t.Fatalf("test case %s failed, error=%s", name, err.Error())
 	}
-	return token
+	return &token
 }

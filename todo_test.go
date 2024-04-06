@@ -10,10 +10,11 @@ import (
 )
 
 func TestCreateTodo(t *testing.T) {
+	os.Setenv("JWT_SECRET_KEY", "test")
 	type testCase struct {
 		name         string
 		data         CreateTodo
-		token        string
+		token        *string
 		expectedCode int
 		expected     Todo
 		expectedErr  apiErrorV2
@@ -71,10 +72,12 @@ func TestCreateTodo(t *testing.T) {
 					},
 				},
 			},
+			token:        nil,
 			expectedCode: http.StatusUnauthorized,
 			expectedErr: apiErrorV2{
 				Type:   errTypeUnauthorized,
-				Title:  "Missing or invalid credentials",
+				Title:  errTitleUnauthorized,
+				Detail: "missing or invalid token",
 				Status: http.StatusUnauthorized,
 			},
 		},
@@ -90,7 +93,7 @@ func TestCreateTodo(t *testing.T) {
 
 	for _, tt := range tc {
 		url := fmt.Sprintf("%s/%s", srv.URL, "v1/todos")
-		resp, err := makeTestRequest(t, tt.name, url, http.MethodPost, tt.data)
+		resp, err := makeTestRequest(t, tt.name, url, http.MethodPost, tt.token, tt.data)
 		body, err := readTestResponse(t, tt.name, tt.expectedCode, resp, err)
 		if err != nil {
 			t.Fatalf("test case %s fail, error=%s", tt.name, err.Error())
