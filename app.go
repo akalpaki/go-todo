@@ -251,13 +251,13 @@ func (a *application) handleUpdateTodo(w http.ResponseWriter, r *http.Request) *
 		return badRequestResponseV2("invalid todo list id", err)
 	}
 
-	validate := validator.New()
-	err = validate.Struct(update)
-	if err != nil {
+	if err := readJSON(w, r, &update); err != nil {
 		return badRequestResponseV2("invalid data", err)
 	}
 
-	if err := readJSON(w, r, &update); err != nil {
+	validate := validator.New()
+	err = validate.Struct(update)
+	if err != nil {
 		return badRequestResponseV2("invalid data", err)
 	}
 
