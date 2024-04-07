@@ -226,16 +226,33 @@ func (r *repository) GetTodoItems(ctx context.Context, todoID int) ([]Item, erro
 	return items, nil
 }
 
-func (r *repository) AddTodoItem(ctx context.Context, item Item) error {
-	_, err := r.DB.ExecContext(ctx, "insert into todo_item (itemNo, content, done, todo_id) values (?,?,?,?)", item.ItemNo, item.Content, item.Done, item.TodoID)
-	if err != nil {
-		return err
+func (r *repository) AddTodoItem(ctx context.Context, item Item) (Item, error) {
+	newItem := Item{
+		ItemNo:  item.ItemNo,
+		Content: item.Content,
+		Done:    item.Done,
+		TodoID:  item.TodoID,
 	}
-	return nil
+	res, err := r.DB.ExecContext(ctx, "insert into todo_item (itemNo, content, done, todo_id) values (?,?,?,?)", item.ItemNo, item.Content, item.Done, item.TodoID)
+	if err != nil {
+		return Item{}, err
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return Item{}, err
+	}
+
+	newItem.ItemID, err = toInt(id)
+	if err != nil {
+		return Item{}, err
+	}
+
+	return newItem, err
 }
 
 func (r *repository) UpdateTodoItem(ctx context.Context, update Item) error {
-	_, err := r.DB.ExecContext(ctx, "update todo_item set content = ?, done = ? where todo_id = ? and itemNo = ?", update.Content, update.Done, update.TodoID, update.ItemNo)
+	_, err := r.DB.ExecContext(ctx, "update todo_item set itemNo = ?, content = ?, done = ? where itemId = ?", update.ItemNo, update.Content, update.Done, update.ItemID)
 	if err != nil {
 		return err
 	}

@@ -336,13 +336,18 @@ func (a *application) handleAddTodoItem(w http.ResponseWriter, r *http.Request) 
 		return badRequestResponseV2("invalid data", err)
 	}
 
-	if err := a.repository.AddTodoItem(ctx, item); err != nil {
+	res, err := a.repository.AddTodoItem(ctx, item)
+	if err != nil {
 		switch err {
 		case errNotFound:
 			return notFoundResponseV2()
 		default:
 			return internalErrorResponseV2("failed to add todo item", err)
 		}
+	}
+
+	if err := writeJSON(w, http.StatusOK, res); err != nil {
+		return internalErrorResponseV2("an error occured", err)
 	}
 
 	return nil

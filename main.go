@@ -10,16 +10,29 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-const MIGRATION_TEMP = `
+const DB_SETUP_QUERY = `
 create table if not exists todo (id integer not null primary key autoincrement, name text not null, user_id integer not null, foreign key (user_id) references user(id) on delete cascade);
-create table if not exists todo_item (itemNo integer not null, content text not null, done boolean not null, todo_id integer not null, foreign key (todo_id) references todo (id) on delete cascade);
+create table if not exists todo_item (itemId integer not null primary key autoincrement, itemNo integer not null, content text not null, done boolean not null, todo_id integer not null, foreign key (todo_id) references todo (id) on delete cascade);
 create table if not exists user (id integer not null primary key autoincrement, email text not null, password text not null);
 `
 
-func runMigration(db *sql.DB) {
-	_, err := db.Exec(MIGRATION_TEMP)
+func openDBConnection(connStr string) *sql.DB {
+	conn, err := sql.Open("sqlite3", connStr)
 	if err != nil {
-		panic("Unable to migrate database!")
+		log.Fatalf("failed to open database, error=%s", err.Error())
+	}
+
+	if err := conn.Ping(); err != nil {
+		log.Fatalf("failed to ping database, error=%s", err.Error())
+	}
+
+	return conn
+}
+
+func setupDB(db *sql.DB) {
+	_, err := db.Exec(DB_SETUP_QUERY)
+	if err != nil {
+		panic("Unable to setup database!")
 	}
 }
 
@@ -40,16 +53,9 @@ func main() {
 		log.Fatalln("provided environment is invalid")
 	}
 
-	conn, err := sql.Open("sqlite3", cfg.ConnectionStr)
-	if err != nil {
-		log.Fatalf("unable to establish database connection, error=%s", err.Error())
-	}
+	conn := openDBConnection(cfg.ConnectionStr)
+	setupDB(conn)
 
-	if err := conn.Ping(); err != nil {
-		log.Fatalf("unable to establish database connection, error=%s", err.Error())
-	}
-
-	runMigration(conn)
 	storer := newRepository(conn)
 	app := newApplication(logger, storer)
 

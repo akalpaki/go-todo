@@ -31,7 +31,8 @@ type UpdateTodo struct {
 
 // Item is the model for the value object representing a single item in a todo list.
 type Item struct {
-	ItemNo  int    `json:"itemNo"`
+	ItemID  int    `json:"item_id"`
+	ItemNo  int    `json:"item_no"`
 	Content string `json:"content"`
 	Done    bool   `json:"done"`
 	TodoID  int    `json:"todo_id"`
