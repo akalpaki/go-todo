@@ -3,22 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3"
 )
-
-type configv2 struct {
-	logLevel       int
-	maxPayloadSize int
-	loggerOutput   string
-	env            string
-	listenAddr     string
-	connStr        string
-	secret         string
-	tokenExpiry    time.Duration
-}
 
 const (
 	ENV_DEV  = "development"

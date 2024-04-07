@@ -1,6 +1,97 @@
 package main
 
-import "fmt"
+import (
+	"flag"
+	"fmt"
+	"log"
+	"os"
+	"strconv"
+	"time"
+
+	"github.com/akalpaki/todo/internal/config"
+)
+
+const (
+	DEFAULT_PAYLOAD_SIZE = 1048576 // 1 MB
+	DEFAULT_LOG_LEVEL    = -4      // debug level in log/slog
+	DEFAULT_TOKEN_EXPIRY = 30 * time.Minute
+)
+
+var (
+	env            string
+	listenAddr     string
+	maxPayloadSize int
+	connStr        string
+	logLevel       int
+	loggerOutput   string
+	secret         string
+	tokenExpiry    time.Duration
+)
+
+func loadConfig() *config.Configv2 {
+	readArgs()
+	return config.New(
+		config.WithServerOptions(
+			env,
+			listenAddr,
+			maxPayloadSize,
+			connStr,
+		),
+		config.WithLoggerOptions(
+			logLevel,
+			loggerOutput,
+		),
+		config.WithJWTOptions(
+			secret,
+			tokenExpiry,
+		),
+	)
+}
+
+func readArgs() {
+
+	flag.StringVar(&env, "env", lookupEnvString("ENV", "dev"), "the name of the environment the server is being run")
+	flag.StringVar(&listenAddr, "port", lookupEnvString("PORT", ":8000"), "the port the server is listening at")
+	flag.IntVar(&maxPayloadSize, "payload_size", lookupEnvInt("PAYLOAD_SIZE", DEFAULT_PAYLOAD_SIZE), "the maximum permitted payload size")
+	flag.StringVar(&connStr, "conn_str", lookupEnvString("CONNECTION_STRING", "file:todo.db"), "database connection string")
+	flag.IntVar(&logLevel, "log_level", lookupEnvInt("LOG_LEVEL", DEFAULT_LOG_LEVEL), "minimum logging level")
+	flag.StringVar(&loggerOutput, "log_output", lookupEnvString("LOG_OUTPUT", os.Stdout.Name()), "path to the logger's output file")
+	flag.StringVar(&secret, "secret", lookupEnvString("JWT_SECRET_KEY", "secret"), "jwt signing key")
+	flag.DurationVar(&tokenExpiry, "token_exp", lookupEnvDuration("TOKEN_EXPIRY", DEFAULT_TOKEN_EXPIRY), "expiration time of jwt tokens")
+
+	flag.Parse()
+
+	log.Printf("loading configuration for %s environment", env)
+}
+
+func lookupEnvString(key string, defaultVal string) string {
+	if val, ok := os.LookupEnv(key); ok {
+		return val
+	}
+	return defaultVal
+}
+
+func lookupEnvInt(key string, defaultVal int) int {
+	if val, ok := os.LookupEnv(key); ok {
+		intVal, err := strconv.Atoi(val)
+		if err != nil {
+			log.Fatalf("failed to read integer environment variable %s, error=%s", key, err.Error())
+		}
+		return intVal
+	}
+	return defaultVal
+}
+
+func lookupEnvDuration(key string, defaultVal time.Duration) time.Duration {
+	if val, ok := os.LookupEnv(key); ok {
+		durVal, err := time.ParseDuration(val)
+		if err != nil {
+			log.Fatalf("failed to read time duration environment variable %s, error=%s", key, err.Error())
+		}
+		return durVal
+	}
+	return defaultVal
+}
 
 func help() {
 	text := `
@@ -20,7 +111,8 @@ func help() {
 	 --log_output : the path to the logger's output file
 		default :  stdout 
 	--secret : jwt secret key, used in signing and validating jwt tokens
-	--token_exp : duration of jwt validity (should be a number)
+	--token_exp : duration of jwt validity
+		ATTENTION: this should be formatted as a string that can be parsed by time.ParseDuration (https://pkg.go.dev/time#ParseDuration)
 		default :  30 minutes
 	--conn_str : database connection string
 	--payload_size : maximum permitted payload size (should be a number)
