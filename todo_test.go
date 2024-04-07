@@ -75,12 +75,7 @@ func TestCreateTodo(t *testing.T) {
 			},
 			token:        nil,
 			expectedCode: http.StatusUnauthorized,
-			expectedErr: apiErrorV2{
-				Type:   errTypeUnauthorized,
-				Title:  errTitleUnauthorized,
-				Detail: "missing or invalid token",
-				Status: http.StatusUnauthorized,
-			},
+			expectedErr:  apiErrorV2{Type: errTypeUnauthorized, Title: errTitleUnauthorized, Detail: "missing or invalid token", Status: http.StatusUnauthorized},
 		},
 	}
 
@@ -94,7 +89,7 @@ func TestCreateTodo(t *testing.T) {
 
 	for _, tt := range tc {
 		url := fmt.Sprintf("%s/%s", srv.URL, "v1/todos")
-		resp, err := makeTestRequest(t, tt.name, url, http.MethodPost, tt.token, tt.data)
+		resp, err := makeTestRequest(t, tt.name, url, http.MethodPost, tt.token, nil, tt.data)
 		body, err := readTestResponse(t, tt.name, tt.expectedCode, resp, err)
 		if err != nil {
 			t.Fatalf("test case %s fail, error=%s", tt.name, err.Error())
@@ -143,30 +138,26 @@ func TestGetTodo(t *testing.T) {
 			},
 		},
 		{
+			name:         "todo not found",
+			token:        makeTestToken(t, "todo not found", 2),
+			expectedCode: http.StatusNotFound,
+			expectedErr:  apiErrorV2{Type: errTypeNotFound, Title: errTitleNotFound, Status: http.StatusNotFound},
+		},
+		{
 			name:         "todo doesn't belong to the user",
 			token:        makeTestToken(t, "todo doesn't belong to the user", 2),
 			expectedCode: http.StatusForbidden,
-			expectedErr: apiErrorV2{
-				Type:   errTypeForbidden,
-				Title:  errTitleForbidden,
-				Status: http.StatusForbidden,
-				Detail: "you do not have access to this resource",
-			},
+			expectedErr:  apiErrorV2{Type: errTypeForbidden, Title: errTitleForbidden, Status: http.StatusForbidden, Detail: "you do not have access to this resource"},
 		},
 		{
 			name:         "no token",
 			expectedCode: http.StatusUnauthorized,
-			expectedErr: apiErrorV2{
-				Type:   errTypeUnauthorized,
-				Title:  errTitleUnauthorized,
-				Status: http.StatusUnauthorized,
-				Detail: "missing or invalid token",
-			},
+			expectedErr:  apiErrorV2{Type: errTypeUnauthorized, Title: errTitleUnauthorized, Status: http.StatusUnauthorized, Detail: "missing or invalid token"},
 		},
 	}
 
 	testApp, tempF := setupApp(t)
-	createTestUser(t, testApp.repository.DB)
+	createTestTodo(t, testApp.repository.DB, false)
 	srv := httptest.NewServer(testApp.handler)
 	defer t.Cleanup(func() {
 		srv.Close()
@@ -176,7 +167,10 @@ func TestGetTodo(t *testing.T) {
 
 	for _, tt := range tc {
 		url := fmt.Sprintf("%s/%s", srv.URL, "v1/todos/1")
-		resp, err := makeTestRequest(t, tt.name, url, http.MethodGet, tt.token, nil)
+		if tt.name == "todo not found" {
+			url = fmt.Sprintf("%s/%s", srv.URL, "v1/todos/3")
+		}
+		resp, err := makeTestRequest(t, tt.name, url, http.MethodGet, tt.token, nil, nil)
 		body, err := readTestResponse(t, tt.name, tt.expectedCode, resp, err)
 
 		if err != nil {
@@ -199,6 +193,105 @@ func TestGetTodo(t *testing.T) {
 			}
 			if resTodo.ID != tt.expected.ID || resTodo.Name != tt.expected.Name || resTodo.UserID != tt.expected.UserID || !reflect.DeepEqual(resTodo.Items, tt.expected.Items) {
 				t.Fatalf("test case %s failed, expected=%v, result=%v", tt.name, tt.expected, resTodo)
+			}
+		}
+	}
+}
+
+func TestGetTodos(t *testing.T) {
+	os.Setenv("JWT_SECRET_KEY", "test")
+
+	type testCase struct {
+		name         string
+		token        *string
+		queryParams  map[string]string
+		expected     []Todo
+		expectedCode int
+		expectedErr  apiErrorV2
+	}
+	tc := []testCase{
+		{
+			name:  "happy path - default limit, offset",
+			token: makeTestToken(t, "happy path", 1),
+			expected: []Todo{
+				{
+					ID:     1,
+					UserID: 1,
+					Name:   "test",
+				},
+				{
+					ID:     2,
+					UserID: 1,
+					Name:   "test2",
+				},
+			},
+			expectedCode: http.StatusOK,
+		},
+		{
+			name:  "happy path - limit 1 offset 1",
+			token: makeTestToken(t, "happy path", 1),
+			queryParams: map[string]string{
+				"page":  "2",
+				"limit": "1",
+			},
+			expected: []Todo{
+				{
+					ID:     2,
+					UserID: 1,
+					Name:   "test2",
+				},
+			},
+			expectedCode: http.StatusOK,
+		},
+		{
+			name:         "no token",
+			expectedCode: http.StatusUnauthorized,
+			expectedErr:  apiErrorV2{Type: errTypeUnauthorized, Title: errTitleUnauthorized, Status: http.StatusUnauthorized, Detail: "missing or invalid token"},
+		},
+		{
+			name:         "user with no todos",
+			token:        makeTestToken(t, "user with no token", 3),
+			expectedCode: http.StatusNotFound,
+			expectedErr:  apiErrorV2{Type: errTypeNotFound, Title: errTitleNotFound, Status: http.StatusNotFound},
+		},
+	}
+
+	testApp, tempF := setupApp(t)
+	createTestTodo(t, testApp.repository.DB, true)
+	srv := httptest.NewServer(testApp.handler)
+	defer t.Cleanup(func() {
+		srv.Close()
+		tempF.Close()
+		os.Remove("todo_test.db")
+	})
+
+	for _, tt := range tc {
+		url := fmt.Sprintf("%s/%s", srv.URL, "v1/todos")
+		resp, err := makeTestRequest(t, tt.name, url, http.MethodGet, tt.token, tt.queryParams, nil)
+		body, err := readTestResponse(t, tt.name, tt.expectedCode, resp, err)
+
+		if err != nil {
+			t.Fatalf("test case %s fail, error=%s", tt.name, err.Error())
+		}
+
+		switch {
+		case tt.expectedErr != apiErrorV2{}:
+			var resErr apiErrorV2
+			if err := json.Unmarshal(body, &resErr); err != nil {
+				t.Fatalf("test case %s failed, error=%s", tt.name, err.Error())
+			}
+			if resErr != tt.expectedErr {
+				t.Fatalf("test case %s failed, expected=%v, result=%v", tt.name, tt.expectedErr, resErr)
+			}
+		default:
+			var resTodos []Todo
+			if err := json.Unmarshal(body, &resTodos); err != nil {
+				t.Fatalf("test case %s failed, expected=%v, result=%v", tt.name, tt.expected, resTodos)
+			}
+			for i, todo := range resTodos {
+				if todo.ID != tt.expected[i].ID {
+					t.Fatalf("test case %s failed, expected=%v, result=%v", tt.name, tt.expected, resTodos)
+				}
 			}
 		}
 	}

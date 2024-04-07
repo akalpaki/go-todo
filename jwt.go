@@ -56,8 +56,8 @@ func defaultKeyFunc(t *jwt.Token) (any, error) {
 	return []byte(secret), nil
 }
 
-// Auth is the middleware that validates jwt tokens.
-func Auth(next http.HandlerFunc) http.HandlerFunc {
+// auth is the middleware that validates jwt tokens.
+func auth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tokenStr := r.Header.Get("x-jwt-token")
 		token, err := jwt.Parse(tokenStr, defaultKeyFunc)

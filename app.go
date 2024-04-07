@@ -62,17 +62,17 @@ func (a *application) SetupRoutes() {
 	mux.HandleFunc("POST /v1/users/login", makeHTTPHandleFunc(a.handleLoginUser))
 
 	// Todo endpoints: crud on the todo list entity
-	mux.HandleFunc("POST /v1/todos", Auth(makeHTTPHandleFunc(a.handleCreateTodo)))
-	mux.HandleFunc("GET /v1/todos", Auth(makeHTTPHandleFunc(a.handleGetTodos)))
-	mux.HandleFunc("GET /v1/todos/{id}", Auth(makeHTTPHandleFunc(a.handleGetTodo)))
-	mux.HandleFunc("PUT /v1/todos/{id}", Auth(makeHTTPHandleFunc(a.handleUpdateTodo)))
-	mux.HandleFunc("DELETE /v1/todos/{id}", Auth(makeHTTPHandleFunc(a.handleDeleteTodo)))
+	mux.HandleFunc("POST /v1/todos", auth(makeHTTPHandleFunc(a.handleCreateTodo)))
+	mux.HandleFunc("GET /v1/todos", auth(makeHTTPHandleFunc(a.handleGetTodos)))
+	mux.HandleFunc("GET /v1/todos/{id}", auth(makeHTTPHandleFunc(a.handleGetTodo)))
+	mux.HandleFunc("PUT /v1/todos/{id}", auth(makeHTTPHandleFunc(a.handleUpdateTodo)))
+	mux.HandleFunc("DELETE /v1/todos/{id}", auth(makeHTTPHandleFunc(a.handleDeleteTodo)))
 
 	// Todo item endpoints: crud on todo list items
-	mux.HandleFunc("GET /v1/todos/{id}/items", Auth(makeHTTPHandleFunc(a.handleGetTodoItems)))
-	mux.HandleFunc("POST /v1/todos/{id}/items", Auth(makeHTTPHandleFunc(a.handleAddTodoItem)))
-	mux.HandleFunc("PUT /v1/todos/{id}/items/{itemNo}", Auth(makeHTTPHandleFunc(a.handleEditTodoItem)))
-	mux.HandleFunc("DELETE /v1/todos/{id}/items/{itemNo}", Auth(makeHTTPHandleFunc(a.handleDeleteTodoItem)))
+	mux.HandleFunc("GET /v1/todos/{id}/items", auth(makeHTTPHandleFunc(a.handleGetTodoItems)))
+	mux.HandleFunc("POST /v1/todos/{id}/items", auth(makeHTTPHandleFunc(a.handleAddTodoItem)))
+	mux.HandleFunc("PUT /v1/todos/{id}/items/{itemNo}", auth(makeHTTPHandleFunc(a.handleEditTodoItem)))
+	mux.HandleFunc("DELETE /v1/todos/{id}/items/{itemNo}", auth(makeHTTPHandleFunc(a.handleDeleteTodoItem)))
 
 	a.handler = mux
 }
@@ -122,7 +122,12 @@ func (a *application) handleLoginUser(w http.ResponseWriter, r *http.Request) *a
 
 	registeredUser, err := a.repository.GetUserByEmail(ctx, user.Email)
 	if err != nil {
-		return badRequestResponseV2("invalid data", err)
+		switch err {
+		case errNotFound:
+			return notFoundResponseV2()
+		default:
+			return badRequestResponseV2("invalid data", err)
+		}
 	}
 
 	if !checkPasswordHash(user.Password, registeredUser.Password) {
@@ -161,7 +166,7 @@ func (a *application) handleGetTodos(w http.ResponseWriter, r *http.Request) *ap
 	resp, err := a.repository.GetTodosByUserID(ctx, userID, limit, page)
 	if err != nil {
 		switch err {
-		case errNotFound:
+		case errNoTodosForUser:
 			return notFoundResponseV2()
 		default:
 			return internalErrorResponseV2("failed to retrieve todo lists", err)

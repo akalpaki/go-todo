@@ -37,7 +37,7 @@ func setupApp(t *testing.T) (*application, *os.File) {
 	return app, tempFile
 }
 
-func makeTestRequest(t *testing.T, name string, url string, method string, token *string, data any) (*http.Response, error) {
+func makeTestRequest(t *testing.T, name string, url string, method string, token *string, queryParams map[string]string, data any) (*http.Response, error) {
 	t.Helper()
 	client := http.Client{}
 
@@ -48,6 +48,13 @@ func makeTestRequest(t *testing.T, name string, url string, method string, token
 	req, err := http.NewRequest(method, url, bytes.NewReader(body))
 	if err != nil {
 		t.Fatalf("test case %s failed, error=%s", name, err.Error())
+	}
+	if queryParams != nil {
+		query := req.URL.Query()
+		for key, val := range queryParams {
+			query.Add(key, val)
+		}
+		req.URL.RawQuery = query.Encode()
 	}
 	req.Header.Add("Content-Type", "application/json")
 	if token != nil {
@@ -78,11 +85,19 @@ func makeTestToken(t *testing.T, name string, userID int) *string {
 	return &token
 }
 
-func createTestUser(t *testing.T, db *sql.DB) {
+func createTestTodo(t *testing.T, db *sql.DB, multiple bool) {
 	sql := "insert into todo (name, user_id) values (?, ?) "
 
 	_, err := db.Exec(sql, "test", 1)
 	if err != nil {
-		t.Fatalf("failed to create test user, error=%s", err.Error())
+		t.Fatalf("failed to create test todo, error=%s", err.Error())
+	}
+
+	if multiple {
+		_, err := db.Exec(sql, "test2", 1)
+		if err != nil {
+			t.Fatalf("failed to create test todo, error=%s", err.Error())
+		}
+
 	}
 }

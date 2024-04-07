@@ -9,7 +9,8 @@ import (
 )
 
 var (
-	errNotFound = errors.New("entry not found")
+	errNotFound       = errors.New("entry not found")
+	errNoTodosForUser = errors.New("no todos found for user")
 )
 
 type repository struct {
@@ -49,6 +50,9 @@ func (r *repository) GetUserByEmail(ctx context.Context, email string) (User, er
 
 	res := r.DB.QueryRowContext(ctx, "select * from user where email = ?", email)
 	if err := res.Scan(&registeredUser.ID, &registeredUser.Email, &registeredUser.Password); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return User{}, errNotFound
+		}
 		return User{}, err
 	}
 	return registeredUser, nil
@@ -57,9 +61,14 @@ func (r *repository) GetUserByEmail(ctx context.Context, email string) (User, er
 func (r *repository) GetUserByID(id int) (User, error) {
 	var registeredUser User
 	row := r.DB.QueryRow("select * from user where id = ?", id)
+
 	if err := row.Scan(&registeredUser); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return User{}, errNotFound
+		}
 		return User{}, err
 	}
+
 	return registeredUser, nil
 }
 
@@ -74,11 +83,16 @@ func (r *repository) GetTodosByUserID(ctx context.Context, userID int, limit, pa
 	}
 	for rows.Next() {
 		var td Todo
-		if err := rows.Scan(&td.ID, &td.Name); err != nil {
+		if err := rows.Scan(&td.ID, &td.Name, &td.UserID); err != nil {
 			return nil, err
 		}
 		res = append(res, td)
 	}
+
+	if len(res) == 0 {
+		return nil, errNoTodosForUser
+	}
+
 	return res, nil
 }
 
@@ -88,6 +102,9 @@ func (r *repository) GetTodo(ctx context.Context, id int) (Todo, error) {
 
 	tdRow := r.DB.QueryRowContext(ctx, "select id, name, user_id from todo where id = ?", id)
 	if err := tdRow.Scan(&res.ID, &res.Name, &res.UserID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Todo{}, errNotFound
+		}
 		return Todo{}, err
 	}
 
@@ -112,6 +129,9 @@ func (r *repository) GetTodoMetadataByID(id int) (Todo, error) {
 	var res Todo
 	row := r.DB.QueryRow("select * from todo where id = ?", id)
 	if err := row.Scan(&res); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Todo{}, errNotFound
+		}
 		return Todo{}, err
 	}
 	return res, nil
