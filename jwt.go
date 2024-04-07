@@ -64,10 +64,11 @@ func auth(next http.HandlerFunc) http.HandlerFunc {
 
 		if err != nil || token == nil || !token.Valid {
 			writeJSON(w, http.StatusUnauthorized, apiErrorV2{
-				Type:   errTypeUnauthorized,
-				Title:  errTitleUnauthorized,
-				Status: http.StatusUnauthorized,
-				Detail: "missing or invalid token",
+				Type:       errTypeUnauthorized,
+				Title:      errTitleUnauthorized,
+				Status:     http.StatusUnauthorized,
+				Detail:     "missing or invalid token",
+				underlying: err,
 			})
 			return
 		}

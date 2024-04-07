@@ -296,3 +296,13 @@ func TestGetTodos(t *testing.T) {
 		}
 	}
 }
+
+func TestUpdateTodo(t *testing.T) {
+	os.Setenv("JWT_SECRET_KEY", "secret")
+
+	type testCase struct {
+		name         string
+		expectedCode int
+		expectedErr  apiErrorV2
+	}
+}
