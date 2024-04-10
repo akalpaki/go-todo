@@ -6,18 +6,19 @@ explore the opportunities Go's `1.21` and `1.22` updates present for logging and
 
 
 ### Goals
-1. Have a complete REST API that handles the registration and login of users.
-The system will utilize JWT tokens for authorization
-2. Have a complete REST API that handles the CRUD operations required for the todo application, based on user's authorization.
-3. Have a solid configuration system that follows as much as possible the Twelve Factor App standard for application configuration. Configuration values should be orthogonal to each other and be provided as a set of modular values that do not depend on each other.
-4. Do proper versioning.
-5. Explore the patterns of middleware that are common in the Go community, such as the wrapper type around `http.Handler` which allows your handler functions to return errors that can be handled by your server in a proper manner.
-6. Proper error handling. Error values returned to the consumer of the API should contain useful information to help debug issues, without exposing internal implementation. For the purposes of exploration, I will be using the Problem Details error handling style presented in [RFC-9457](https://datatracker.ietf.org/doc/html/rfc9457).
-7. Provide a complete testing suite for the REST API. Completeness for the purposes of this project is not 100% code coverage, but a thorough testing of the API contracts which is done in such manner that internal implementation is not mocked. This way testing the contracts practically performs an end-to-end test.
-8. Split the different domains handled by this server into separate autonomous microservices.
-9. Use Docker to containerize the microservices and provide simple way to push them to production.
-10. Explore CI/CD pipelines which can help streamline this process.
-11. Use proper benchmarking, tracing and memory profiling to find optimization opportunities and discover how my coding style evolves as a concequence of the inefficiencies I uncover.
+1. Create a complete backend for handling the needs of the todo app. In it's current version, this means a REST API for todo lists and users,
+secured using JWT tokens.
+2. Integrate a PostgreSQL database for the persistence layer. Make the server and database work together using containers with docker-compose.
+3. Create CI/CD pipeline for deployment.
+4. Use benchmarks, profiling and tracing to attempt to find any ways to improve the performance of the server.
+
+### Current Progress:
+REST API has been implemented. Now what is needed is:
+- TLS
+- API testing
+- Containerization of server and integration with PostgreSQL using docker-compose.
+- CI/CD implementation
+- Versioning
 
 ### Setup
 To run this project, Go version 1.22 or greater is required.

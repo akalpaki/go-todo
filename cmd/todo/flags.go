@@ -51,7 +51,7 @@ func loadConfig() *config.Config {
 func readArgs() {
 	flag.StringVar(&env, "env", lookupEnvString("ENV", "dev"), "the name of the environment the server is being run")
 	flag.StringVar(&listenAddr, "port", lookupEnvString("PORT", ":8000"), "the port the server is listening at")
-	flag.StringVar(&connStr, "conn_str", lookupEnvString("CONNECTION_STRING", "file:hey"), "database connection string")
+	flag.StringVar(&connStr, "conn_str", lookupEnvString("CONNECTION_STRING", "file:todo.db"), "database connection string")
 	flag.IntVar(&logLevel, "log_level", lookupEnvInt("LOG_LEVEL", DEFAULT_LOG_LEVEL), "minimum logging level")
 	flag.StringVar(&loggerOutput, "log_output", lookupEnvString("LOG_OUTPUT", os.Stdout.Name()), "path to the logger's output file")
 	flag.StringVar(&secret, "secret", lookupEnvString("JWT_SECRET_KEY", "secret"), "jwt signing key")
