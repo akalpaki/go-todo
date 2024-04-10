@@ -4,8 +4,6 @@ Todo is the backend of a minimalistic todo app. The guiding principle behind thi
 the usage of external dependencies and to try to rely on Go's standard library as much as possible, and to
 explore the opportunities Go's `1.21` and `1.22` updates present for logging and routing.
 
-Note: the `old` directory contains the initial hacked code I wrote when still figuring out the basics of the
-project. It will be removed in a future version.
 
 ### Goals
 1. Have a complete REST API that handles the registration and login of users.
