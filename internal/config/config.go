@@ -1,22 +1,27 @@
 package config
 
-import "time"
+import (
+	"log/slog"
+	"slices"
+	"time"
+)
 
-type option func(*Configv2)
+var validLogLevels = []int{-4, 0, 4, 8}
 
-type Configv2 struct {
-	logLevel       int
-	maxPayloadSize int
-	loggerOutput   string
-	env            string
-	listenAddr     string
-	connStr        string
-	secret         string
-	tokenExpiry    time.Duration
+type option func(*Config)
+
+type Config struct {
+	LogLevel     slog.Level
+	LoggerOutput string
+	Env          string
+	ListenAddr   string
+	Secret       string
+	ConnStr      string
+	TokenExpiry  time.Duration
 }
 
-func New(opts ...option) *Configv2 {
-	cfg := &Configv2{}
+func New(opts ...option) *Config {
+	cfg := &Config{}
 	for _, opt := range opts {
 		opt(cfg)
 	}
@@ -24,24 +29,27 @@ func New(opts ...option) *Configv2 {
 }
 
 func WithServerOptions(env string, port string, maxPayloadSize int, connStr string) option {
-	return func(c *Configv2) {
-		c.env = env
-		c.listenAddr = port
-		c.maxPayloadSize = maxPayloadSize
-		c.connStr = connStr // TODO: create function which groups db based dependencies together when implementing pgSQL
+	return func(c *Config) {
+		c.Env = env
+		c.ListenAddr = port
+		c.ConnStr = connStr
 	}
 }
 
 func WithLoggerOptions(logLevel int, loggerOutput string) option {
-	return func(c *Configv2) {
-		c.logLevel = logLevel
-		c.loggerOutput = loggerOutput
+	if !slices.Contains(validLogLevels, logLevel) {
+		panic("invalid log level value")
+	}
+	level := slog.Level(logLevel)
+	return func(c *Config) {
+		c.LogLevel = level
+		c.LoggerOutput = loggerOutput
 	}
 }
 
 func WithJWTOptions(secret string, tokenExpiry time.Duration) option {
-	return func(c *Configv2) {
-		c.secret = secret
-		c.tokenExpiry = tokenExpiry
+	return func(c *Config) {
+		c.Secret = secret
+		c.TokenExpiry = tokenExpiry
 	}
 }

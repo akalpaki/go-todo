@@ -28,7 +28,7 @@ var (
 	tokenExpiry    time.Duration
 )
 
-func loadConfig() *config.Configv2 {
+func loadConfig() *config.Config {
 	readArgs()
 	return config.New(
 		config.WithServerOptions(
@@ -49,10 +49,8 @@ func loadConfig() *config.Configv2 {
 }
 
 func readArgs() {
-
 	flag.StringVar(&env, "env", lookupEnvString("ENV", "dev"), "the name of the environment the server is being run")
 	flag.StringVar(&listenAddr, "port", lookupEnvString("PORT", ":8000"), "the port the server is listening at")
-	flag.IntVar(&maxPayloadSize, "payload_size", lookupEnvInt("PAYLOAD_SIZE", DEFAULT_PAYLOAD_SIZE), "the maximum permitted payload size")
 	flag.StringVar(&connStr, "conn_str", lookupEnvString("CONNECTION_STRING", "file:todo.db"), "database connection string")
 	flag.IntVar(&logLevel, "log_level", lookupEnvInt("LOG_LEVEL", DEFAULT_LOG_LEVEL), "minimum logging level")
 	flag.StringVar(&loggerOutput, "log_output", lookupEnvString("LOG_OUTPUT", os.Stdout.Name()), "path to the logger's output file")
