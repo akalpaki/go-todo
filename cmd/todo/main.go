@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"log/slog"
+	"net/http"
 	"os"
 
 	"github.com/akalpaki/todo/internal/server"
@@ -17,7 +18,14 @@ func main() {
 
 	logger := initLogger(cfg.LogLevel, cfg.LoggerOutput)
 
-	_ = server.New(cfg, logger, pool)
+	srv := server.New(cfg, logger, pool)
+
+	httpSrv := http.Server{
+		Addr:    cfg.ListenAddr,
+		Handler: srv,
+	}
+
+	log.Fatal(httpSrv.ListenAndServe())
 }
 
 func connectToDatabase(connStr string) *pgxpool.Pool {
