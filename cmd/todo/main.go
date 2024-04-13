@@ -26,6 +26,7 @@ func main() {
 	}
 
 	log.Fatal(httpSrv.ListenAndServe())
+	log.Println("server running at port ", cfg.ListenAddr)
 }
 
 func connectToDatabase(connStr string) *pgxpool.Pool {
