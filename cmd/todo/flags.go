@@ -28,8 +28,20 @@ var (
 	tokenExpiry    time.Duration
 )
 
+func init() {
+	flag.StringVar(&env, "env", lookupEnvString("ENV", "dev"), "the name of the environment the server is being run")
+	flag.StringVar(&listenAddr, "port", lookupEnvString("PORT", ":8000"), "the port the server is listening at")
+	flag.StringVar(&connStr, "conn_str", lookupEnvString("CONNECTION_STRING", "file:todo.db"), "database connection string")
+	flag.IntVar(&logLevel, "log_level", lookupEnvInt("LOG_LEVEL", DEFAULT_LOG_LEVEL), "minimum logging level")
+	flag.StringVar(&loggerOutput, "log_output", lookupEnvString("LOG_OUTPUT", os.Stdout.Name()), "path to the logger's output file")
+	flag.StringVar(&secret, "secret", lookupEnvString("JWT_SECRET_KEY", "secret"), "jwt signing key")
+	flag.DurationVar(&tokenExpiry, "token_exp", lookupEnvDuration("TOKEN_EXPIRY", DEFAULT_TOKEN_EXPIRY), "expiration time of jwt tokens")
+
+	flag.Parse()
+}
+
 func loadConfig() *config.Config {
-	readArgs()
+	log.Printf("loading configuration for %s environment", env)
 	return config.New(
 		config.WithServerOptions(
 			env,
@@ -48,19 +60,8 @@ func loadConfig() *config.Config {
 	)
 }
 
-func readArgs() {
-	flag.StringVar(&env, "env", lookupEnvString("ENV", "dev"), "the name of the environment the server is being run")
-	flag.StringVar(&listenAddr, "port", lookupEnvString("PORT", ":8000"), "the port the server is listening at")
-	flag.StringVar(&connStr, "conn_str", lookupEnvString("CONNECTION_STRING", "file:todo.db"), "database connection string")
-	flag.IntVar(&logLevel, "log_level", lookupEnvInt("LOG_LEVEL", DEFAULT_LOG_LEVEL), "minimum logging level")
-	flag.StringVar(&loggerOutput, "log_output", lookupEnvString("LOG_OUTPUT", os.Stdout.Name()), "path to the logger's output file")
-	flag.StringVar(&secret, "secret", lookupEnvString("JWT_SECRET_KEY", "secret"), "jwt signing key")
-	flag.DurationVar(&tokenExpiry, "token_exp", lookupEnvDuration("TOKEN_EXPIRY", DEFAULT_TOKEN_EXPIRY), "expiration time of jwt tokens")
-
-	flag.Parse()
-
-	log.Printf("loading configuration for %s environment", env)
-}
+// lookupEnvXXX functions provide fallback config values for unspecified flags.
+// They attempt to look up env vars, providing snensible defaults if not found
 
 func lookupEnvString(key string, defaultVal string) string {
 	if val, ok := os.LookupEnv(key); ok {

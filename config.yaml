@@ -1,0 +1,11 @@
+# This file can be copied and edited to create per-environment configuration sets
+env: "dev"
+log_level: -4
+log_out: "/dev/stdout"
+port: ":8000"
+secret: "secret"
+jwt_expiry: "30m0s"
+db_name: "postgres"
+db_host: "5432"
+db_user: "user"
+db_pass: "pass"

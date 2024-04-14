@@ -5,5 +5,30 @@ services:
     build:
       context: .
     ports:
-      - 8000/8000
+      - 8000:8000
+    restart: on-failure
+    depends_on:
+      - db
+    networks:
+      - todo
+
+  db:
+    image: postgres
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASS}
+      - POSTGRES_HOST=${DB_HOST}
+    ports:
+      - "5432:5432"
+    volumes:
+      - db:/var/lib/postgresql/data
+    networks:
+      - todo
   
+volumes:
+  db:
+
+networks:
+  todo:
+    driver: bridge

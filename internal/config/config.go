@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+// validLogLevels is the set of default slog.Level values
+// the slice is used to validate user log level input
 var validLogLevels = []int{-4, 0, 4, 8}
 
 type option func(*Config)
