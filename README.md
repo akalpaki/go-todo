@@ -7,10 +7,11 @@ explore the opportunities Go's `1.21` and `1.22` updates present for logging and
 
 ### Goals
 1. Create a complete backend for handling the needs of the todo app. In it's current version, this means a REST API for todo lists and users,
-secured using JWT tokens.
-2. Integrate a PostgreSQL database for the persistence layer. Make the server and database work together using containers with docker-compose.
-3. Create CI/CD pipeline for deployment.
-4. Use benchmarks, profiling and tracing to attempt to find any ways to improve the performance of the server.
+secured using JWT tokens. DONE
+2. Integrate a PostgreSQL database for the persistence layer. Make the server and database work together using containers with docker-compose. DONE
+3. Write testing suite.
+4. Create CI/CD pipeline for deployment.
+5. Use benchmarks, profiling and tracing to attempt to find any ways to improve the performance of the server.
 
 ### Current Progress:
 REST API has been implemented. Now what is needed is:
