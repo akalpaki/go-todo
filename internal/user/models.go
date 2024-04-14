@@ -24,5 +24,5 @@ func (r UserRequest) Valid() bool {
 
 func isEmail(email string) bool {
 	address, err := mail.ParseAddress(email)
-	return address.String() == email && err == nil
+	return address.Address == email && err == nil
 }

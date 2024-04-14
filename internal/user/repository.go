@@ -9,7 +9,6 @@ import (
 )
 
 var (
-	errNotFound     = errors.New("user not found")
 	errInsertFailed = errors.New("insert failed")
 )
 
@@ -32,7 +31,7 @@ func (r *Repository) Register(ctx context.Context, data UserRequest) (User, erro
 		return User{}, err
 	}
 
-	id, err := nanoid.New(0)
+	id, err := nanoid.New(21)
 	if err != nil {
 		return User{}, err
 	}
@@ -43,6 +42,9 @@ func (r *Repository) Register(ctx context.Context, data UserRequest) (User, erro
 	res, err := r.pool.Exec(ctx, insert, u.ID, u.Email, u.Password)
 	if res.RowsAffected() == 0 {
 		return User{}, errInsertFailed
+	}
+	if err != nil {
+		return User{}, err
 	}
 	return u, nil
 }

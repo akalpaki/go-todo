@@ -1,33 +1,37 @@
 version: "3"
 
 services:
-  server:
-    build:
-      context: .
+  todo-server:
+    container_name: todo-server
+    build: .
     ports:
       - 8000:8000
     restart: on-failure
+    environment:
+      CONNECTION_STRING: "host=todo_db user=postgres password=postgres dbname=postgres sslmode=disable"
     depends_on:
-      - db
+      - todo_db
     networks:
       - todo
 
-  db:
+  todo_db:
     image: postgres
+    container_name: todo_db
     environment:
-      - POSTGRES_DB=${DB_NAME}
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASS}
-      - POSTGRES_HOST=${DB_HOST}
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
+    restart: always
     volumes:
-      - db:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
     networks:
       - todo
   
 volumes:
-  db:
+  pgdata:
+
 
 networks:
   todo:
