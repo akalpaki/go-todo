@@ -36,8 +36,7 @@ And that's it!
 
 ### Resources
 Resources include most of the articles, repositories or in general resources I've used during research and exploration of the project:\
-1. https://github.com/remisb/mat : standard golang project I use for inspiration
-2. https://datatracker.ietf.org/doc/html/rfc9457 : the specification for `application/problem+json`
-3. https://12factor.net/config : 12 Factor App configuration
-4. https://www.youtube.com/@anthonygg_ : golang guru I get a lot of ideas from
-5. https://github.com/urfave/negroni/tree/master : inspiration for access middleware solution
+1. https://github.com/remisb/ : my mentor's github, with whom I bounce ideas back and forth and get inspiration
+2. https://12factor.net/config : 12 Factor App configuration
+3. https://www.youtube.com/@anthonygg_ : golang guru I get a lot of ideas from
+4. https://github.com/urfave/negroni/tree/master : inspiration for access middleware solution
