@@ -15,11 +15,8 @@ secured using JWT tokens. DONE
 
 ### Current Progress:
 REST API has been implemented. Now what is needed is:
-- TLS
 - API testing
-- Containerization of server and integration with PostgreSQL using docker-compose.
 - CI/CD implementation
-- Versioning
 
 ### Setup
 To run this project, Go version 1.22 or greater is required.
