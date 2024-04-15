@@ -12,17 +12,17 @@ func Routes(logger *slog.Logger, repository *Repository) http.Handler {
 	mux := http.NewServeMux()
 
 	// TODO routes
-	mux.HandleFunc("POST /", web.Auth(handleCreate(logger, repository)))
-	mux.HandleFunc("GET /", web.Auth(handleGetForUser(logger, repository)))
-	mux.HandleFunc("GET /{id}", web.Auth(handleGetByID(logger, repository)))
-	mux.HandleFunc("PUT /{id}", web.Auth(handleUpdate(logger, repository)))
-	mux.HandleFunc("DELETE /{id}", web.Auth(handleDelete(logger, repository)))
+	mux.HandleFunc("POST /", web.Access(web.Auth(handleCreate(logger, repository)), logger))
+	mux.HandleFunc("GET /", web.Access(web.Auth(handleGetForUser(logger, repository)), logger))
+	mux.HandleFunc("GET /{id}", web.Access(web.Auth(handleGetByID(logger, repository)), logger))
+	mux.HandleFunc("PUT /{id}", web.Access(web.Auth(handleUpdate(logger, repository)), logger))
+	mux.HandleFunc("DELETE /{id}", web.Access(web.Auth(handleDelete(logger, repository)), logger))
 
 	// TASK routes
-	mux.HandleFunc("POST /{id}/items", web.Auth(handleCreateTask(logger, repository)))
-	mux.HandleFunc("GET /{id}/items", web.Auth(handleGetTasks(logger, repository)))
-	mux.HandleFunc("PUT /{todo_id}/items/{task_id}", web.Auth(handleUpdateTask(logger, repository)))
-	mux.HandleFunc("DELETE /{todo_id}/items/{task_id}", web.Auth(handleDeleteTask(logger, repository)))
+	mux.HandleFunc("POST /{id}/items", web.Access(web.Auth(handleCreateTask(logger, repository)), logger))
+	mux.HandleFunc("GET /{id}/items", web.Access(web.Auth(handleGetTasks(logger, repository)), logger))
+	mux.HandleFunc("PUT /{todo_id}/items/{task_id}", web.Access(web.Auth(handleUpdateTask(logger, repository)), logger))
+	mux.HandleFunc("DELETE /{todo_id}/items/{task_id}", web.Access(web.Auth(handleDeleteTask(logger, repository)), logger))
 
 	return mux
 }

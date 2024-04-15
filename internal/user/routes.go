@@ -10,8 +10,8 @@ import (
 func Routes(logger *slog.Logger, repository *Repository) http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("POST /", handleRegister(logger, repository))
-	mux.HandleFunc("POST /login", handleLogin(logger, repository))
+	mux.HandleFunc("POST /", web.Access(handleRegister(logger, repository), logger))
+	mux.HandleFunc("POST /login", web.Access(handleLogin(logger, repository), logger))
 
 	return mux
 }

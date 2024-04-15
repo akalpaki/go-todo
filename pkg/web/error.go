@@ -86,6 +86,6 @@ func ErrorResponse(
 			underlying: err,
 		}
 	}
-	logger.Error("error", apiError.underlying)
+	logger.Error("error", "error_message", apiError.underlying)
 	WriteJSON(w, r, apiError.Status, apiError.Error())
 }
