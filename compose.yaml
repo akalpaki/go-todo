@@ -1,8 +1,8 @@
 version: "3"
 
 services:
-  todo-server:
-    container_name: todo-server
+  server:
+    container_name: server
     build: .
     ports:
       - 8000:8000

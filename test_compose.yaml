@@ -1,5 +1,4 @@
 version: "3"
-
 services:
   todo-server-test:
     container_name: todo-test
@@ -9,7 +8,7 @@ services:
     ports:
       - "8001:8001"
     environment:
-      CONNECTION_STRING: "host:todo_db_test user=test password=test dbname=test sslmode=disable"
+      CONNECTION_STRING: "host:db-test user=test password=test dbname=test sslmode=disable"
     depends_on:
       - todo-db-test
     networks:
@@ -23,7 +22,9 @@ services:
       POSTGRES_USER: test
       POSTGRES_PASSWORD: test
     ports:
-      - "5433:5433"
+      - "5432:5432"
+    networks:
+      - todo-test
 
 networks:
   todo-test:

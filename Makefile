@@ -3,7 +3,7 @@ run:
 
 test:
 	@docker compose -f test_compose.yaml up
-
+	
 clean:
-	@docker compose rm -f
-	@docker image rm todo-todo-server
+	@docker compose down --rmi local
+	@docker compose rm -f todo-db-test
