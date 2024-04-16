@@ -1,0 +1,30 @@
+version: "3"
+
+services:
+  todo-server-test:
+    container_name: todo-test
+    build: 
+      context: .
+      dockerfile: test.Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      CONNECTION_STRING: "host:todo_db_test user=test password=test dbname=test sslmode=disable"
+    depends_on:
+      - todo-db-test
+    networks:
+      - todo-test
+
+  todo-db-test:
+    image: postgres
+    container_name: todo-db-test
+    environment:
+      POSTGRES_DB: test
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+    ports:
+      - "5433:5433"
+
+networks:
+  todo-test:
+    driver: bridge
