@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const testDBConnString = "host:todo_db_test user=test password=test dbname=test sslmode=disable"
+const testDBConnString = "host=test-db user=test password=test dbname=test sslmode=disable"
 
 func Setup() (*slog.Logger, *pgxpool.Pool) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))

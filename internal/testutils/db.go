@@ -9,17 +9,29 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+func CleanupDB(pool *pgxpool.Pool) {
+	q := `
+	DROP TABLE IF EXISTS users CASCADE;
+	DROP TABLE IF EXISTS todos CASCADE;
+	DROP TABLE IF EXISTS tasks;
+	`
+	if _, err := pool.Exec(context.TODO(), q); err != nil {
+		panic(err)
+	}
+}
+
 func initDatabase(connStr string) *pgxpool.Pool {
 	pool := connectToDB(connStr)
+	CleanupDB(pool)
 	if err := setupTables(pool); err != nil {
-		panic("failed to set up database")
+		log.Print(err)
+		CleanupDB(pool)
 	}
 	return pool
 }
 
 func connectToDB(connStr string) *pgxpool.Pool {
-	// TODO: fix error coonecting to db container.
-	connCtx := context.TODO()
+	connCtx := context.Background()
 	pool, err := pgxpool.New(connCtx, connStr)
 	if err != nil {
 		log.Fatalf("test init: opening db: %s", err.Error())
@@ -67,42 +79,46 @@ func setupTables(conn *pgxpool.Pool) error {
 		return err
 	}
 
-	seedData(conn)
+	if err := seedData(conn); err != nil {
+		return err
+	}
 	return nil
 }
 
-func seedData(conn *pgxpool.Pool) {
+func seedData(conn *pgxpool.Pool) error {
 	pass1, err := bcrypt.GenerateFromPassword([]byte("test1"), 14)
 	if err != nil {
-		panic("failed to create test user password")
+		return err
 	}
 	pass2, err := bcrypt.GenerateFromPassword([]byte("test2"), 14)
 	if err != nil {
-		panic("failed to create test user password")
+		return err
 	}
-	user1 := fmt.Sprintf(`INSERT INTO users (id, email, password) VALUES ('test1','test1@test.com', %s)`, pass1)
-	user2 := fmt.Sprintf(`INSERT INTO users (id, email, password) VALUES ('test2','test2@test.com', %s)`, pass2)
+	user1 := fmt.Sprintf(`INSERT INTO users (id, email, password) VALUES ('test1','test1@test.com', '%s')`, string(pass1))
+	user2 := fmt.Sprintf(`INSERT INTO users (id, email, password) VALUES ('test2','test2@test.com', '%s')`, string(pass2))
 
 	if _, err := conn.Exec(context.TODO(), user1); err != nil {
-		log.Fatalf("failed to seed test user, error=%s", err.Error())
+		return err
 	}
 	if _, err := conn.Exec(context.TODO(), user2); err != nil {
-		log.Fatalf("failed to seed test user, error=%s", err.Error())
+		return err
 	}
 
-	todo1 := `INSERT INTO todos (id, name, author_id) VALUES ('todo1', 'test1', 'test1)`
-	todo2 := `INSERT INTO todos (id, name, author_id) VALUES ('todo2', 'test2', 'test2)`
+	todo1 := `INSERT INTO todos (id, name, author_id) VALUES ('todo1', 'test1', 'test1')`
+	todo2 := `INSERT INTO todos (id, name, author_id) VALUES ('todo2', 'test2', 'test2')`
 
 	if _, err := conn.Exec(context.TODO(), todo1); err != nil {
-		log.Fatalf("failed to seed test todo, error=%s", err.Error())
+		return err
 	}
 	if _, err := conn.Exec(context.TODO(), todo2); err != nil {
-		log.Fatalf("failed to seed test todo, error=%s", err.Error())
+		return err
 	}
 
-	task := `INSERT INTO tasks (id, todo_id, task_order, content, done) VALUES ('task1', 'todo1', 0, TRUE)`
+	task := `INSERT INTO tasks (id, todo_id, task_order, content, done) VALUES ('task1', 'todo1', 0, 'test', TRUE)`
 
 	if _, err := conn.Exec(context.TODO(), task); err != nil {
-		log.Fatalf("failed to seed test task, error=%s", err.Error())
+		return err
 	}
+
+	return nil
 }

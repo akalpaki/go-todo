@@ -26,6 +26,7 @@ func TestMain(m *testing.M) {
 	logger, dbPool = testutils.Setup()
 	repo = NewRepository(dbPool)
 	m.Run()
+	testutils.CleanupDB(dbPool)
 	dbPool.Close()
 }
 
