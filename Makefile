@@ -3,3 +3,4 @@ run:
 
 test:
 	@docker compose -f test_compose.yaml up --abort-on-container-exit -V --force-recreate --build
+	@docker compose -f test_compose.yaml down --rmi local -v
