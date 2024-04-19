@@ -5,6 +5,7 @@ services:
     build: 
       context: .
       dockerfile: Dockerfile.test
+      no_cache: true
     ports:
       - "8001:8001"
     environment:
