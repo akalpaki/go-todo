@@ -66,7 +66,7 @@ func handleLogin(logger *slog.Logger, repository *Repository) http.HandlerFunc {
 			return
 		}
 
-		r.Header.Add("x-jwt-token", token)
+		w.Header().Add("x-jwt-token", token)
 		if err := web.WriteJSON(w, r, http.StatusOK, ""); err != nil {
 			web.ErrorResponse(logger, w, r, http.StatusBadRequest, "invalid data", err)
 			return

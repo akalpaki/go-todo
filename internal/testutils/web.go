@@ -3,7 +3,6 @@ package testutils
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -54,22 +53,10 @@ func TestRequest(
 	return req
 }
 
-func TestResponse(t *testing.T, name string, expectedCode int, resp *http.Response, err error) ([]byte, error) {
-	if err != nil {
-		t.Fatalf("test case %s failed, error=%s", name, err.Error())
-	}
-
-	if resp.StatusCode != expectedCode {
-		t.Fatalf("test case %s failed, expected code=%d, result=%d", name, expectedCode, resp.StatusCode)
-	}
-
-	return io.ReadAll(resp.Body)
-}
-
-func TestToken(t *testing.T, name string, userID string) *string {
+func TestToken(t *testing.T, name string, userID string) string {
 	token, err := web.CreateAccessToken(userID)
 	if err != nil {
 		t.Fatalf("test case %s failed, error=%s", name, err.Error())
 	}
-	return &token
+	return token
 }

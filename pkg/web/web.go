@@ -31,7 +31,7 @@ func ReadJSON[T Validator](r *http.Request) (T, error) {
 
 	contentType := r.Header.Get("Content-Type")
 	if strings.ToLower(contentType) != "application/json" {
-		return v, ErrInvalidContentType
+		return v, fmt.Errorf("ReadJSON: %w", ErrInvalidContentType)
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&v); err != nil {
@@ -39,7 +39,7 @@ func ReadJSON[T Validator](r *http.Request) (T, error) {
 	}
 
 	if !v.Valid() {
-		return v, ErrInvalidValue
+		return v, fmt.Errorf("ReadJSON: %w", ErrInvalidValue)
 	}
 
 	return v, nil

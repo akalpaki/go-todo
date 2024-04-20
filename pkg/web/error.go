@@ -7,8 +7,6 @@ import (
 	"net/http"
 )
 
-type title string
-
 const (
 	BadRequestTitle       = "httperror:badrequest"
 	UnauthorizedTitle     = "httperror:unauthorized"
