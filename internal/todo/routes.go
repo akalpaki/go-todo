@@ -12,22 +12,22 @@ func Routes(logger *slog.Logger, repository *Repository) http.Handler {
 	mux := http.NewServeMux()
 
 	// TODO routes
-	mux.HandleFunc("POST /", web.Access(web.Auth(handleCreate(logger, repository)), logger))
-	mux.HandleFunc("GET /", web.Access(web.Auth(handleGetForUser(logger, repository)), logger))
-	mux.HandleFunc("GET /{id}", web.Access(web.Auth(handleGetByID(logger, repository)), logger))
-	mux.HandleFunc("PUT /{id}", web.Access(web.Auth(handleUpdate(logger, repository)), logger))
-	mux.HandleFunc("DELETE /{id}", web.Access(web.Auth(handleDelete(logger, repository)), logger))
+	mux.HandleFunc("POST /", web.Access(web.Auth(HandleCreate(logger, repository)), logger))
+	mux.HandleFunc("GET /", web.Access(web.Auth(HandleGetForUser(logger, repository)), logger))
+	mux.HandleFunc("GET /{id}", web.Access(web.Auth(HandleGetByID(logger, repository)), logger))
+	mux.HandleFunc("PUT /{id}", web.Access(web.Auth(HandleUpdate(logger, repository)), logger))
+	mux.HandleFunc("DELETE /{id}", web.Access(web.Auth(HandleDelete(logger, repository)), logger))
 
 	// TASK routes
-	mux.HandleFunc("POST /{id}/items", web.Access(web.Auth(handleCreateTask(logger, repository)), logger))
-	mux.HandleFunc("GET /{id}/items", web.Access(web.Auth(handleGetTasks(logger, repository)), logger))
-	mux.HandleFunc("PUT /{todo_id}/items/{task_id}", web.Access(web.Auth(handleUpdateTask(logger, repository)), logger))
-	mux.HandleFunc("DELETE /{todo_id}/items/{task_id}", web.Access(web.Auth(handleDeleteTask(logger, repository)), logger))
+	mux.HandleFunc("POST /{id}/items", web.Access(web.Auth(HandleCreateTask(logger, repository)), logger))
+	mux.HandleFunc("GET /{id}/items", web.Access(web.Auth(HandleGetTasks(logger, repository)), logger))
+	mux.HandleFunc("PUT /{todo_id}/items/{task_id}", web.Access(web.Auth(HandleUpdateTask(logger, repository)), logger))
+	mux.HandleFunc("DELETE /{todo_id}/items/{task_id}", web.Access(web.Auth(HandleDeleteTask(logger, repository)), logger))
 
 	return mux
 }
 
-func handleCreate(logger *slog.Logger, repository *Repository) http.HandlerFunc {
+func HandleCreate(logger *slog.Logger, repository *Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
@@ -37,20 +37,26 @@ func handleCreate(logger *slog.Logger, repository *Repository) http.HandlerFunc 
 			return
 		}
 
+		authorID, ok := ctx.Value(web.UserID).(string)
+		if !ok || data.AuthorID != authorID {
+			web.ErrorResponse(logger, w, r, http.StatusForbidden, "you do not have access to this resource", web.ErrInvalidUserID)
+			return
+		}
+
 		todo, err := repository.Create(ctx, data)
 		if err != nil {
 			web.ErrorResponse(logger, w, r, http.StatusInternalServerError, "failed to create todo", err)
 			return
 		}
 
-		if err := web.WriteJSON(w, r, http.StatusOK, todo); err != nil {
+		if err := web.WriteJSON(w, r, http.StatusCreated, todo); err != nil {
 			web.ErrorResponse(logger, w, r, http.StatusInternalServerError, "failed to produce response", err)
 			return
 		}
 	}
 }
 
-func handleGetForUser(logger *slog.Logger, repository *Repository) http.HandlerFunc {
+func HandleGetForUser(logger *slog.Logger, repository *Repository) http.HandlerFunc {
 	const defaultLimit = 10
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -91,7 +97,7 @@ func handleGetForUser(logger *slog.Logger, repository *Repository) http.HandlerF
 	}
 }
 
-func handleGetByID(logger *slog.Logger, repository *Repository) http.HandlerFunc {
+func HandleGetByID(logger *slog.Logger, repository *Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		id := r.PathValue("id")
@@ -125,7 +131,7 @@ func handleGetByID(logger *slog.Logger, repository *Repository) http.HandlerFunc
 	}
 }
 
-func handleUpdate(logger *slog.Logger, repository *Repository) http.HandlerFunc {
+func HandleUpdate(logger *slog.Logger, repository *Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		todoID := r.PathValue("id")
@@ -170,7 +176,7 @@ func handleUpdate(logger *slog.Logger, repository *Repository) http.HandlerFunc 
 	}
 }
 
-func handleDelete(logger *slog.Logger, repository *Repository) http.HandlerFunc {
+func HandleDelete(logger *slog.Logger, repository *Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		todoID := r.PathValue("id")
@@ -204,7 +210,7 @@ func handleDelete(logger *slog.Logger, repository *Repository) http.HandlerFunc 
 	}
 }
 
-func handleCreateTask(logger *slog.Logger, repository *Repository) http.HandlerFunc {
+func HandleCreateTask(logger *slog.Logger, repository *Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
@@ -226,7 +232,7 @@ func handleCreateTask(logger *slog.Logger, repository *Repository) http.HandlerF
 	}
 }
 
-func handleGetTasks(logger *slog.Logger, repository *Repository) http.HandlerFunc {
+func HandleGetTasks(logger *slog.Logger, repository *Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
@@ -245,7 +251,7 @@ func handleGetTasks(logger *slog.Logger, repository *Repository) http.HandlerFun
 	}
 }
 
-func handleUpdateTask(logger *slog.Logger, repository *Repository) http.HandlerFunc {
+func HandleUpdateTask(logger *slog.Logger, repository *Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
@@ -267,7 +273,7 @@ func handleUpdateTask(logger *slog.Logger, repository *Repository) http.HandlerF
 	}
 }
 
-func handleDeleteTask(logger *slog.Logger, repository *Repository) http.HandlerFunc {
+func HandleDeleteTask(logger *slog.Logger, repository *Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		id := r.PathValue("task_id")

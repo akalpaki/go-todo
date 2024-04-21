@@ -38,7 +38,7 @@ func (r *Repository) Create(ctx context.Context, data TodoRequest) (Todo, error)
 	}
 	defer conn.Release()
 
-	id, err := nanoid.New(0)
+	id, err := nanoid.New(21)
 	if err != nil {
 		return Todo{}, nil
 	}
@@ -63,7 +63,7 @@ func (r *Repository) Create(ctx context.Context, data TodoRequest) (Todo, error)
 
 	if len(t.Tasks) > 0 {
 		for _, v := range t.Tasks {
-			_, err := tx.Exec(ctx, insertTaskQuery, v.ID, v.TodoID, v.Order, v.Content, v.Done)
+			_, err := tx.Exec(ctx, insertTaskQuery, v.ID, t.ID, v.Order, v.Content, v.Done) // note t.ID for the todo_id field because we've just generated it
 			if err != nil {
 				tx.Rollback(ctx)
 				return Todo{}, fmt.Errorf("todo_repo insert task: %w", err)
@@ -100,6 +100,7 @@ func (r *Repository) GetByID(ctx context.Context, id string) (Todo, error) {
 		}
 		tasks = append(tasks, task)
 	}
+	t.Tasks = tasks
 
 	return t, nil
 }

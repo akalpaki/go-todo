@@ -10,13 +10,13 @@ import (
 func Routes(logger *slog.Logger, repository *Repository) http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("POST /", web.Access(handleRegister(logger, repository), logger))
-	mux.HandleFunc("POST /login", web.Access(handleLogin(logger, repository), logger))
+	mux.HandleFunc("POST /", web.Access(HandleRegister(logger, repository), logger))
+	mux.HandleFunc("POST /login", web.Access(HandleLogin(logger, repository), logger))
 
 	return mux
 }
 
-func handleRegister(logger *slog.Logger, repository *Repository) http.HandlerFunc {
+func HandleRegister(logger *slog.Logger, repository *Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
@@ -39,7 +39,7 @@ func handleRegister(logger *slog.Logger, repository *Repository) http.HandlerFun
 	}
 }
 
-func handleLogin(logger *slog.Logger, repository *Repository) http.HandlerFunc {
+func HandleLogin(logger *slog.Logger, repository *Repository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 

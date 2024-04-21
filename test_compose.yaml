@@ -10,6 +10,8 @@ services:
       - "8001:8001"
     environment:
       CONNECTION_STRING: "host=test_db user=test password=test dbname=test sslmode=disable"
+      JWT_SECRET_KEY: "test"
+      LOG_LEVEL: "-4"
     depends_on:
       - test-db
     networks:

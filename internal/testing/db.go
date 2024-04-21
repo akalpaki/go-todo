@@ -1,4 +1,4 @@
-package testutils
+package testing
 
 import (
 	"context"
@@ -24,7 +24,7 @@ func initDatabase(connStr string) *pgxpool.Pool {
 	pool := connectToDB(connStr)
 	CleanupDB(pool)
 	if err := setupTables(pool); err != nil {
-		log.Print(err)
+		log.Fatalf("test init: running db setup script: %s", err.Error())
 		CleanupDB(pool)
 	}
 	return pool
@@ -36,13 +36,11 @@ func connectToDB(connStr string) *pgxpool.Pool {
 	if err != nil {
 		log.Fatalf("test init: opening db: %s", err.Error())
 	}
+
 	if err := pool.Ping(connCtx); err != nil {
 		log.Fatalf("test init: ping db: %s", err.Error())
 	}
 
-	if err := setupTables(pool); err != nil {
-		log.Fatalf("test init: running db setup script: %s", err.Error())
-	}
 	return pool
 }
 
@@ -57,7 +55,7 @@ func setupTables(conn *pgxpool.Pool) error {
 		id VARCHAR(21) PRIMARY KEY,
 		author_id VARCHAR(21) NOT NULL,
 		name TEXT NOT NULL,
-		CONSTRAINT author_id
+		CONSTRAINT fk_author_id
 			FOREIGN KEY(author_id)
 				REFERENCES users(id)
 				ON DELETE CASCADE
@@ -68,7 +66,7 @@ func setupTables(conn *pgxpool.Pool) error {
 		content TEXT,
 		done BOOLEAN,
 		task_order INT,
-		CONSTRAINT todo_id
+		CONSTRAINT fk_todo_id
 			FOREIGN KEY(todo_id)
 				REFERENCES todos(id)
 				ON DELETE CASCADE

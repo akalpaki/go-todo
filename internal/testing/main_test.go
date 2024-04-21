@@ -1,8 +1,10 @@
-package user
+package testing
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -12,54 +14,58 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/akalpaki/todo/internal/testutils"
+	"github.com/akalpaki/todo/internal/todo"
+	"github.com/akalpaki/todo/internal/user"
+	"github.com/akalpaki/todo/pkg/web"
 )
 
 // used to test handling of bcrypt's limitation of password length
 const reallyLongPassword = "abcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabcabc"
 
 var (
-	repo   *Repository
-	dbPool *pgxpool.Pool
-	logger *slog.Logger
+	userRepo *user.Repository
+	todoRepo *todo.Repository
+	dbPool   *pgxpool.Pool
+	logger   *slog.Logger
 )
 
 func TestMain(m *testing.M) {
-	logger, dbPool = testutils.Setup()
-	repo = NewRepository(dbPool)
+	logger, dbPool = Setup()
+	userRepo = user.NewRepository(dbPool)
+	todoRepo = todo.NewRepository(dbPool)
 	m.Run()
-	testutils.CleanupDB(dbPool)
+	CleanupDB(dbPool)
 	dbPool.Close()
 }
 
 func TestRegister(t *testing.T) {
 	tc := []struct {
 		name               string
-		data               UserRequest
-		expectedResult     User
+		data               user.UserRequest
+		expectedResult     user.User
 		expectedStatusCode int
 		expectedError      string
 	}{
 		{
 			name: "successfuly create a user",
-			data: UserRequest{
+			data: user.UserRequest{
 				Email:    "test3@test.com",
 				Password: "test123",
 			},
-			expectedResult: User{
+			expectedResult: user.User{
 				Email: "test3@test.com",
 			},
 			expectedStatusCode: http.StatusOK,
 		},
 		{
 			name:               "no data provided",
-			data:               UserRequest{},
+			data:               user.UserRequest{},
 			expectedStatusCode: http.StatusBadRequest,
 			expectedError:      "httperror:badrequest: invalid data or malformed json",
 		},
 		{
 			name: "no email provided",
-			data: UserRequest{
+			data: user.UserRequest{
 				Password: "thisisntgonnawork",
 			},
 			expectedStatusCode: http.StatusBadRequest,
@@ -67,7 +73,7 @@ func TestRegister(t *testing.T) {
 		},
 		{
 			name: "invalid email provided",
-			data: UserRequest{
+			data: user.UserRequest{
 				Email:    "whatevenisthis",
 				Password: "thisisntgonnawork",
 			},
@@ -76,7 +82,7 @@ func TestRegister(t *testing.T) {
 		},
 		{
 			name: "no password provided",
-			data: UserRequest{
+			data: user.UserRequest{
 				Email: "whoops@ididit.again",
 			},
 			expectedStatusCode: http.StatusBadRequest,
@@ -84,7 +90,7 @@ func TestRegister(t *testing.T) {
 		},
 		{
 			name: "password too long",
-			data: UserRequest{
+			data: user.UserRequest{
 				Email:    "test3@test.com",
 				Password: reallyLongPassword,
 			},
@@ -95,9 +101,9 @@ func TestRegister(t *testing.T) {
 
 	for _, tt := range tc {
 		rc := httptest.NewRecorder()
-		req := testutils.TestRequest(t, tt.name, "/", http.MethodPost, nil, nil, tt.data)
+		req := TestRequest(t, tt.name, "/", http.MethodPost, "", nil, tt.data)
 
-		handleRegister(logger, repo).ServeHTTP(rc, req)
+		user.HandleRegister(logger, userRepo).ServeHTTP(rc, req)
 
 		if tt.expectedStatusCode != rc.Code {
 			t.Fatalf("test_register: case %s: expectedStatusCode=%d, actualStatusCode=%d", tt.name, tt.expectedStatusCode, rc.Code)
@@ -112,7 +118,7 @@ func TestRegister(t *testing.T) {
 				t.Fatalf("test_register: case %s: expectedError=%v, actualError=%v", tt.name, tt.expectedError, actualError)
 			}
 		} else {
-			var u User
+			var u user.User
 			if err := json.Unmarshal(rc.Body.Bytes(), &u); err != nil {
 				t.Fatalf("test_register: case %s: failed to unmarshall response, error=%s", tt.name, err.Error())
 			}
@@ -126,7 +132,7 @@ func TestRegister(t *testing.T) {
 func TestLogin(t *testing.T) {
 	tc := []struct {
 		name           string
-		data           UserRequest
+		data           user.UserRequest
 		expectedResult struct {
 			iss string
 			sub string
@@ -136,7 +142,7 @@ func TestLogin(t *testing.T) {
 	}{
 		{
 			name: "user successfully logs in",
-			data: UserRequest{
+			data: user.UserRequest{
 				Email:    "test1@test.com",
 				Password: "test1",
 			},
@@ -151,13 +157,13 @@ func TestLogin(t *testing.T) {
 		},
 		{
 			name:               "no data",
-			data:               UserRequest{},
+			data:               user.UserRequest{},
 			expectedStatusCode: http.StatusBadRequest,
 			expectedError:      "httperror:badrequest: invalid data",
 		},
 		{
 			name: "wrong password",
-			data: UserRequest{
+			data: user.UserRequest{
 				Email:    "test1@test.com",
 				Password: "wrong_pass",
 			},
@@ -166,7 +172,7 @@ func TestLogin(t *testing.T) {
 		},
 		{
 			name: "unregistered user",
-			data: UserRequest{
+			data: user.UserRequest{
 				Email:    "idont@exist.com",
 				Password: "test1",
 			},
@@ -177,9 +183,9 @@ func TestLogin(t *testing.T) {
 
 	for _, tt := range tc {
 		rc := httptest.NewRecorder()
-		req := testutils.TestRequest(t, tt.name, "/login", http.MethodPost, nil, nil, tt.data)
+		req := TestRequest(t, tt.name, "/login", http.MethodPost, "", nil, tt.data)
 
-		handleLogin(logger, repo).ServeHTTP(rc, req)
+		user.HandleLogin(logger, userRepo).ServeHTTP(rc, req)
 
 		if tt.expectedStatusCode != rc.Code {
 			t.Fatalf("test_login: case %s: expectedStatusCode=%d, actualStatusCode=%d", tt.name, tt.expectedStatusCode, rc.Code)
@@ -220,4 +226,97 @@ func TestLogin(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestCreate(t *testing.T) {
+	tc := []struct {
+		name               string
+		data               todo.TodoRequest
+		userID             string
+		expectedResult     todo.Todo
+		expectedStatusCode int
+		expectedError      string
+	}{
+		{
+			name: "successfully create a todo",
+			data: todo.TodoRequest{
+				AuthorID: "test1",
+				Name:     "test3",
+				Tasks: []todo.Task{
+					{
+						Content: "test",
+						Done:    true,
+						Order:   0,
+					},
+				},
+			},
+			userID:             "test1",
+			expectedStatusCode: http.StatusCreated,
+			expectedResult: todo.Todo{
+				AuthorID: "test1",
+				Name:     "test3",
+				Tasks: []todo.Task{
+					{
+						Content: "test",
+						Done:    true,
+						Order:   0,
+					},
+				},
+			},
+		},
+		{
+			name: "create a todo for another user",
+			data: todo.TodoRequest{
+				AuthorID: "test1",
+				Name:     "test3",
+				Tasks: []todo.Task{
+					{
+						Content: "test",
+						Done:    true,
+						Order:   0,
+					},
+				},
+			},
+			userID:             "test2",
+			expectedStatusCode: http.StatusForbidden,
+			expectedError:      "httperror:forbidden: you do not have access to this resource",
+		},
+	}
+
+	for _, tt := range tc {
+		rc := httptest.NewRecorder()
+		req := TestRequest(t, tt.name, "/", http.MethodPost, "", nil, tt.data)
+		ctx := context.WithValue(req.Context(), web.UserID, tt.userID)
+		todo.HandleCreate(logger, todoRepo).ServeHTTP(rc, req.WithContext(ctx))
+
+		if tt.expectedError != "" {
+			var actualError string
+			if err := json.Unmarshal(rc.Body.Bytes(), &actualError); err != nil {
+				t.Fatalf("test_create: case %s: failed to unmarshall response, error=%s", tt.name, err.Error())
+			}
+			if tt.expectedError != actualError {
+				t.Fatalf("test_create: case %s: expectedError=%v, actualError=%v", tt.name, tt.expectedError, actualError)
+			}
+		} else {
+			res := rc.Result()
+			if res.StatusCode != tt.expectedStatusCode {
+				t.Fatalf("test_register: case %s: expectedStatusCode=%v, actualStatusCode=%v", tt.name, tt.expectedStatusCode, res.StatusCode)
+			}
+			var td todo.Todo
+			resData, err := io.ReadAll(res.Body)
+			if err != nil {
+				t.Fatalf("test_create: case %s: failed to read response body, error=%s", tt.name, err.Error())
+			}
+			if err := json.Unmarshal(resData, &td); err != nil {
+				t.Fatalf("test_create: case %s: failed to unmarshall response, error=%s", tt.name, err.Error())
+			}
+			if tt.expectedResult.AuthorID != td.AuthorID && tt.expectedResult.Name != td.Name {
+				t.Fatalf("test_register: case %s: expectedResult=%v, actualResult=%v", tt.name, tt.expectedResult, td)
+			}
+		}
+	}
+}
+
+func TestUpdate(t *testing.T) {
+
 }

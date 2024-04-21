@@ -1,4 +1,4 @@
-package testutils
+package testing
 
 import (
 	"bytes"
@@ -23,7 +23,7 @@ func Setup() (*slog.Logger, *pgxpool.Pool) {
 func TestRequest(
 	t *testing.T,
 	name, url, method string,
-	token *string,
+	token string,
 	queryParams map[string]string,
 	data any,
 ) *http.Request {
@@ -46,10 +46,9 @@ func TestRequest(
 	}
 
 	req.Header.Add("Content-Type", "application/json")
-	if token != nil {
-		req.Header.Add("x-jwt-token", *token)
+	if token != "" {
+		req.Header.Add("x-jwt-token", token)
 	}
-
 	return req
 }
 

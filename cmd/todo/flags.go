@@ -70,7 +70,7 @@ func loadConfig() *config.Config {
 }
 
 // lookupEnvXXX functions provide fallback config values for unspecified flags.
-// They attempt to look up env vars, providing snensible defaults if not found
+// They attempt to look up env vars, providing sensible defaults if not found
 
 func lookupEnvString(key string, defaultVal string) string {
 	if val, ok := os.LookupEnv(key); ok {

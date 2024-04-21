@@ -16,13 +16,11 @@ const UserID contextKey = "userID"
 
 func CreateAccessToken(userID string) (string, error) {
 	secret := os.Getenv("JWT_SECRET_KEY")
-	token := jwt.New(jwt.SigningMethodHS256)
-	claims := jwt.MapClaims{
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"iss": "todo",
 		"sub": userID,
 		"exp": &jwt.NumericDate{Time: time.Now().Add(30 * time.Minute)},
-	}
-	token.Claims = claims
+	})
 	tokenStr, err := token.SignedString([]byte(secret))
 	if err != nil {
 		return "", err
@@ -35,7 +33,6 @@ func Auth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tokenStr := r.Header.Get("x-jwt-token")
 		token, err := jwt.Parse(tokenStr, defaultKeyFunc)
-
 		if err != nil || token == nil || !token.Valid {
 			WriteJSON(
 				w,
@@ -82,11 +79,24 @@ func Auth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		ctx := context.WithValue(r.Context(), UserID, claims["sub"])
+		userID, ok := claims["sub"].(string)
+		if !ok {
+			WriteJSON(
+				w,
+				r,
+				http.StatusUnauthorized,
+				ApiError{
+					Status:     http.StatusUnauthorized,
+					Title:      UnauthorizedTitle,
+					Detail:     "missing or invalid token",
+					underlying: err,
+				},
+			)
+			return
+		}
+		ctx := context.WithValue(r.Context(), UserID, userID)
 
-		r = r.WithContext(ctx)
-
-		next(w, r)
+		next(w, r.WithContext(ctx))
 	}
 }
 
