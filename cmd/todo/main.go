@@ -14,13 +14,13 @@ import (
 
 func main() {
 	cfg := loadConfig()
-
+	log.Println("Config: ", cfg)
 	pool := initDatabase(cfg.ConnStr)
 	logger := initLogger(cfg.LogLevel, cfg.LoggerOutput)
 
 	app := app.New(cfg, logger, pool)
 	httpSrv := http.Server{
-		Addr:    cfg.ListenAddr,
+		Addr:    ":8000",
 		Handler: app,
 	}
 

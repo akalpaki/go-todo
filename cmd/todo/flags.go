@@ -14,6 +14,7 @@ import (
 const (
 	defaulLogLevel     = -4 // debug level in log/slog
 	defualtTokenExpiry = 30 * time.Minute
+	defaultConnStr     = "host=0.0.0.0 user=postgres password=postgres dbname=postgres sslmode=disable"
 )
 
 var (
@@ -21,10 +22,6 @@ var (
 	listenAddr     string
 	maxPayloadSize int
 	connStr        string
-	dbName         string
-	dbPort         string
-	dbUser         string
-	dbPass         string
 	logLevel       int
 	loggerOutput   string
 	secret         string
@@ -34,8 +31,8 @@ var (
 
 func init() {
 	flag.StringVar(&env, "env", lookupEnvString("ENV", "dev"), "the name of the environment the server is being run")
-	flag.StringVar(&listenAddr, "port", lookupEnvString("PORT", ":8000"), "the port the server is listening at")
-	flag.StringVar(&connStr, "conn_str", lookupEnvString("CONNECTION_STRING", "file:todo.db"), "database connection string")
+	flag.StringVar(&listenAddr, "port", lookupEnvString("PORT", "localhost:8000"), "the port the server is listening at")
+	flag.StringVar(&connStr, "conn_str", lookupEnvString("CONNECTION_STRING", defaultConnStr), "database connection string")
 	flag.IntVar(&logLevel, "log_level", lookupEnvInt("LOG_LEVEL", defaulLogLevel), "minimum logging level")
 	flag.StringVar(&loggerOutput, "log_output", lookupEnvString("LOG_OUTPUT", os.Stdout.Name()), "path to the logger's output file")
 	flag.StringVar(&secret, "secret", lookupEnvString("JWT_SECRET_KEY", "secret"), "jwt signing key")

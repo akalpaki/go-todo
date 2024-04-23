@@ -58,6 +58,7 @@ func HandleCreate(logger *slog.Logger, repository *Repository) http.HandlerFunc 
 
 func HandleGetForUser(logger *slog.Logger, repository *Repository) http.HandlerFunc {
 	const defaultLimit = 10
+	const defaultPage = 1
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -65,7 +66,7 @@ func HandleGetForUser(logger *slog.Logger, repository *Repository) http.HandlerF
 		queryParams := r.URL.Query()
 		page, err := strconv.Atoi(queryParams.Get("page"))
 		if err != nil {
-			page = 0
+			page = defaultPage
 		}
 		limit, err := strconv.Atoi(queryParams.Get("limit"))
 		if err != nil {

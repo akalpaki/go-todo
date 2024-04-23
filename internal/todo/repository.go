@@ -8,8 +8,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/noquark/nanoid"
-
-	"github.com/akalpaki/todo/pkg/db"
 )
 
 var (
@@ -108,7 +106,7 @@ func (r *Repository) GetByID(ctx context.Context, id string) (Todo, error) {
 func (r *Repository) GetByUserID(ctx context.Context, userID string, limit, page int) ([]Todo, error) {
 	todos := make([]Todo, 0)
 
-	offset := db.CalculateOffset(page, limit)
+	offset := (page - 1) * limit
 	rows, err := r.pool.Query(ctx, selectTodosByAuthorIDQuery, userID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("todo_repo select todos by userID: %w", err)

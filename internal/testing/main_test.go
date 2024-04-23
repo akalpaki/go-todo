@@ -108,7 +108,6 @@ func TestRegister(t *testing.T) {
 		if tt.expectedStatusCode != rc.Code {
 			t.Fatalf("test_register: case %s: expectedStatusCode=%d, actualStatusCode=%d", tt.name, tt.expectedStatusCode, rc.Code)
 		}
-
 		if tt.expectedError != "" {
 			var actualError string
 			if err := json.Unmarshal(rc.Body.Bytes(), &actualError); err != nil {
@@ -317,6 +316,44 @@ func TestCreate(t *testing.T) {
 	}
 }
 
-func TestUpdate(t *testing.T) {
+func TestGetForUser(t *testing.T) {
+	tc := []struct {
+		name               string
+		userID             string
+		expectedResult     []todo.Todo
+		expectedStatusCode int
+		expectedError      string
+	}{
+		{
+			name:   "user successfully retrieves his todo lists",
+			userID: "test1",
+			expectedResult: []todo.Todo{
+				{
+					ID:       "todo1",
+					AuthorID: "test1",
+					Name:     "test1",
+					Tasks: []todo.Task{
+						{
+							ID:      "task1",
+							TodoID:  "todo1",
+							Order:   0,
+							Content: "test",
+							Done:    true,
+						},
+					},
+				},
+			},
+			expectedStatusCode: http.StatusOK,
+		},
+	}
 
+	for _, tt := range tc {
+		rc := httptest.NewRecorder()
+		req := TestRequest(t, tt.name, "/", http.MethodGet, "", nil, nil)
+		ctx := context.WithValue(req.Context(), web.UserID, tt.userID)
+		todo.HandleGetForUser(logger, todoRepo).ServeHTTP(rc, req.WithContext(ctx))
+		if rc.Result().StatusCode != tt.expectedStatusCode {
+			t.Fatalf("test_getbyuser: case %s: expectedStatusCode=%d, actualStatusCode=%d", tt.name, tt.expectedStatusCode, rc.Result().StatusCode)
+		}
+	}
 }
