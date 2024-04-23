@@ -345,6 +345,12 @@ func TestGetForUser(t *testing.T) {
 			},
 			expectedStatusCode: http.StatusOK,
 		},
+		{
+			name:               "user has no todos stored",
+			userID:             "test3",
+			expectedStatusCode: http.StatusNotFound,
+			expectedError:      "no todos found for user",
+		},
 	}
 
 	for _, tt := range tc {
