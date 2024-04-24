@@ -14,7 +14,7 @@ import (
 const (
 	defaulLogLevel     = -4 // debug level in log/slog
 	defualtTokenExpiry = 30 * time.Minute
-	defaultConnStr     = "host=0.0.0.0 user=postgres password=postgres dbname=postgres sslmode=disable"
+	defaultConnStr     = "host=todo_db user=postgres password=postgres dbname=postgres sslmode=disable"
 )
 
 var (

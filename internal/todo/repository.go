@@ -81,7 +81,7 @@ func (r *Repository) GetByID(ctx context.Context, id string) (Todo, error) {
 	var t Todo
 
 	tRow := r.pool.QueryRow(ctx, selectTodoQuery, id)
-	if err := tRow.Scan(&t.ID, &t.AuthorID, &t.Name, &t.Tasks); err != nil {
+	if err := tRow.Scan(&t.ID, &t.AuthorID, &t.Name); err != nil {
 		return Todo{}, fmt.Errorf("todo_repo get todo: %w", err)
 	}
 

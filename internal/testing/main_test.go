@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -361,5 +362,75 @@ func TestGetForUser(t *testing.T) {
 		if rc.Result().StatusCode != tt.expectedStatusCode {
 			t.Fatalf("test_getbyuser: case %s: expectedStatusCode=%d, actualStatusCode=%d", tt.name, tt.expectedStatusCode, rc.Result().StatusCode)
 		}
+	}
+}
+
+// func TestGetByID(t *testing.T) {
+// 	tc := []struct {
+// 		name               string
+// 		userID             string
+// 		todoID             string
+// 		expectedResult     todo.Todo
+// 		expectedStatusCode int
+// 		expectedError      string
+// 	}{
+// 		{
+// 			name:   "successfully retrieve a todo",
+// 			userID: "test1",
+// 			todoID: "todo1",
+// 			expectedResult: todo.Todo{
+// 				ID:       "todo1",
+// 				AuthorID: "test1",
+// 				Name:     "test1",
+// 			},
+// 			expectedStatusCode: http.StatusOK,
+// 		},
+// 		{
+// 			name:               "todo doesn't exist",
+// 			userID:             "test1",
+// 			todoID:             "nonexistent",
+// 			expectedStatusCode: http.StatusNotFound,
+// 			expectedError:      "todo not found",
+// 		},
+// 		{
+// 			name:               "todo doesn't belong to user",
+// 			userID:             "test2",
+// 			todoID:             "todo1",
+// 			expectedStatusCode: http.StatusForbidden,
+// 			expectedError:      "you do not have access to this resource",
+// 		},
+// 	}
+// 	for _, tt := range tc {
+// 		rc := httptest.NewRecorder()
+// 		req := TestRequest(t, tt.name, fmt.Sprintf("/%s", tt.todoID), http.MethodGet, "", nil, nil)
+// 		ctx := context.WithValue(req.Context(), web.UserID, tt.userID)
+// 		todo.HandleGetByID(logger, todoRepo).ServeHTTP(rc, req.WithContext(ctx))
+// 		if rc.Result().StatusCode != tt.expectedStatusCode {
+// 			t.Fatalf("test_getbyuser: case %s: expectedStatusCode=%d, actualStatusCode=%d", tt.name, tt.expectedStatusCode, rc.Result().StatusCode)
+// 		}
+// 	}
+// }
+
+func TestUpdate(t *testing.T) {
+	tc := []struct {
+		name               string
+		userID             string
+		todoID             string
+		data               todo.TodoRequest
+		expectedStatusCode int
+		expectedResult     todo.Todo
+		expectedError      string
+	}{}
+
+	for _, tt := range tc {
+		rc := httptest.NewRecorder()
+		data, err := json.Marshal(tt.data)
+		if err != nil {
+			t.Fatalf("todo_test: test update, case %s: err=%s", tt.name, err.Error())
+		}
+		req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/%s", tt.todoID), bytes.NewReader(data))
+		ctx := context.WithValue(req.Context(), web.UserID, tt.userID)
+		todo.HandleUpdate(logger, todoRepo).ServeHTTP(rc, req.WithContext(ctx))
+
 	}
 }
